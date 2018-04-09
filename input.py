@@ -21,48 +21,65 @@ import tensorflow as tf
 import tarfile
 import os
 
+IMAGE_HEIGHT = 100
+IMAGE_WIDTH = 100
+
 """
 This input file is prepared to read a flower dataset. You can find the dataset in:
 http://download.tensorflow.org/example_images/flower_photos.tgz
 """
+
 
 def _read_images(training_entry):
     """
     https://developers.googleblog.com/2017/09/introducing-tensorflow-datasets.html
     https://github.com/tensorflow/models/blob/master/research/inception/inception/data/build_image_data.py
     """
-    file_path, label = training_entry.split(" ")
+    class Record(object):
+        pass
 
-    image_tensor = tf.image.decode_jpeg(file_path)
+    input_tensors = Record()
 
+    file_path, label = training_entry.split(" ")[0:2]
+
+    input_tensors.image = tf.image.decode_jpeg(file_path)
+    input_tensors.label = tf.constant(label)
+
+    return input_tensors.image, input_tensors.label
+
+
+def distorted_input(training_entry):
+    image, label = _read_images(training_entry)
+    with tf.name_scope('data_augmentation'):
+        reshaped_image = tf.cast(image, tf.float16)
+
+        # Randomly crop the input image
+        distorted_image = tf.random_crop(reshaped_image, [IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+
+        # Randomly flip the input image
+        distorted_image = tf.image.random_flip_left_right(distorted_image)
+
+        # Randomly modify the brightness and contrast
+        distorted_image = tf.image.random_brightness(distorted_image,
+                                                     max_delta=63)
+        distorted_image = tf.image.random_contrast(distorted_image,
+                                                   lower=0.2, upper=1.8)
+
+        # Image normalization
+        norm_image = tf.image.per_image_standardization(distorted_image)
+
+        # Set the shapes of the tensors
+        norm_image.set_shape([IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+        label.set_shape([1])
+
+        print(norm_image)
+        print(label)
+
+        return _generate_input_batch()
+
+
+def _generate_input_batch():
     pass
-
-
-class _ImageDecoder(object):
-    """ Helper class that provides TensorFlow image coding utilities. """
-    def __init__(self):
-        self._sess = tf.Session()
-
-        self._decode_jpeg_data = tf.placeholder(dtype=tf.string)
-        self._decode_jpeg = tf.image.decode_jpeg(self._decode_jpeg_data, channels=3)
-
-    def _decode_jpeg(self, image_data):
-        image = self._sess.run(self._decode_jpeg,
-                               feed_dict={self._decode_jpeg_data: image_data})
-        assert len(image.shape) == 3
-        assert image.shape[2] == 3
-
-        return image
-
-
-def _image_decoder():
-    pass
-
-
-def create_tf_records(file_set):
-    with open(file_set, 'r') as file:
-        for line in file.readlines():
-            _read_images(line.rstrip(' \n'))
 
 
 def unzip_input(compressed_file, dest_path):
@@ -168,7 +185,7 @@ def main(none):
     unzip_input('/home/uc3m4/PycharmProjects/ft_flowers/data/flower_photos.tgz',
                 '/home/uc3m4/PycharmProjects/ft_flowers/data/photos')
     prepare_training_dataset('/home/uc3m4/PycharmProjects/ft_flowers/data/photos/flower_photos/')
-    create_tf_records('/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt')
+    distorted_input('/home/uc3m4/PycharmProjects/ft_flowers/data/photos/flower_photos/tulips/7069622551_348d41c327_n.jpg 0 ')
 
 
 if __name__ == "__main__":
