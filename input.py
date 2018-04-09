@@ -40,12 +40,18 @@ def _read_images(training_entry):
 
     input_tensors = Record()
 
-    file_path, label = training_entry.split(" ")[0:2]
+    file_path, label = _get_entry_from_txt(training_entry)
 
     input_tensors.image = tf.image.decode_jpeg(file_path)
-    input_tensors.label = tf.constant(label)
+    input_tensors.label = tf.constant([label], tf.int32)
 
     return input_tensors.image, input_tensors.label
+
+
+def _get_entry_from_txt(training_entry):
+    file_path, label = training_entry.split(" ")[0:2]
+
+    return file_path, int(label)
 
 
 def distorted_input(training_entry):
@@ -72,14 +78,25 @@ def distorted_input(training_entry):
         norm_image.set_shape([IMAGE_HEIGHT, IMAGE_WIDTH, 3])
         label.set_shape([1])
 
-        print(norm_image)
-        print(label)
-
-        return _generate_input_batch()
+        return norm_image, label
 
 
-def _generate_input_batch():
-    pass
+def _generate_tensor_for_training(file_path):
+    with open(file_path, 'r') as file:
+        image_tensor, label_tensor = distorted_input(file.readline())
+        images_tensor = tf.stack([image_tensor], name='images')
+        labels_tensor = tf.stack([label_tensor], name="labels")
+
+        for input_entry in file.readlines():
+            image_tensor, label_tensor = distorted_input(input_entry)
+            images_tensor = tf.concat([images_tensor, tf.expand_dims(image_tensor, 0)], axis=0, name='images')
+            labels_tensor = tf.concat([labels_tensor, tf.expand_dims(label_tensor, 0)], axis=0, name='labels')
+
+        # TODO: Repasar que hacen todos los argumentos
+        images, labels = tf.train.shuffle_batch([images_tensor, labels_tensor], batch_size=32,
+                                                           capacity=10000, min_after_dequeue=3000, enqueue_many=True)
+
+        return images, tf.reshape(labels, [32])
 
 
 def unzip_input(compressed_file, dest_path):
@@ -185,8 +202,8 @@ def main(none):
     unzip_input('/home/uc3m4/PycharmProjects/ft_flowers/data/flower_photos.tgz',
                 '/home/uc3m4/PycharmProjects/ft_flowers/data/photos')
     prepare_training_dataset('/home/uc3m4/PycharmProjects/ft_flowers/data/photos/flower_photos/')
-    distorted_input('/home/uc3m4/PycharmProjects/ft_flowers/data/photos/flower_photos/tulips/7069622551_348d41c327_n.jpg 0 ')
-
+    distorted_input('/home/uc3m4/PycharmProjects/ft_flowers/data/photos/flower_photos/tulips/7069622551_348d41c327_n.jpg 0')
+    _generate_tensor_for_training("/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt")
 
 if __name__ == "__main__":
     tf.app.run()
