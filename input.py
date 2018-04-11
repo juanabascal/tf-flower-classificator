@@ -20,9 +20,12 @@ from __future__ import print_function
 import tensorflow as tf
 import tarfile
 import os
+import random
+from PIL import Image
+import numpy as np
 
-IMAGE_HEIGHT = 100
-IMAGE_WIDTH = 100
+IMAGE_HEIGHT = 299
+IMAGE_WIDTH = 299
 
 """
 This input file is prepared to read a flower dataset. You can find the dataset in:
@@ -40,21 +43,28 @@ def _read_images(training_entry):
 
     input_tensors = Record()
 
-    file_path, label = _get_entry_from_txt(training_entry)
+    file_path, label = _get_image_and_label_from_entry(training_entry)
 
-    input_tensors.image = tf.image.decode_jpeg(file_path)
+    input_tensors.image = Image.open(file_path)
+
+    print("Size:", input_tensors.image.size)
+
+    if input_tensors.image.size[0] < IMAGE_HEIGHT or input_tensors.image.size[1] < IMAGE_WIDTH:
+        input_tensors.image = input_tensors.image.resize((IMAGE_HEIGHT, IMAGE_WIDTH))
+
+    #input_tensors.image = tf.image.decode_jpeg(image, channels=3)
     input_tensors.label = tf.constant([label], tf.int32)
 
     return input_tensors.image, input_tensors.label
 
 
-def _get_entry_from_txt(training_entry):
+def _get_image_and_label_from_entry(training_entry):
     file_path, label = training_entry.split(" ")[0:2]
 
     return file_path, int(label)
 
 
-def distorted_input(training_entry):
+def distorted_input_entry(training_entry):
     image, label = _read_images(training_entry)
     with tf.name_scope('data_augmentation'):
         reshaped_image = tf.cast(image, tf.float16)
@@ -78,23 +88,16 @@ def distorted_input(training_entry):
         norm_image.set_shape([IMAGE_HEIGHT, IMAGE_WIDTH, 3])
         label.set_shape([1])
 
-        return norm_image, label
+    return norm_image, label
 
 
-def _generate_tensor_for_training(file_path):
-    with open(file_path, 'r') as file:
-        image_tensor, label_tensor = distorted_input(file.readline())
-        images_tensor = tf.stack([image_tensor], name='images')
-        labels_tensor = tf.stack([label_tensor], name="labels")
-
-        for input_entry in file.readlines():
-            image_tensor, label_tensor = distorted_input(input_entry)
-            images_tensor = tf.concat([images_tensor, tf.expand_dims(image_tensor, 0)], axis=0, name='images')
-            labels_tensor = tf.concat([labels_tensor, tf.expand_dims(label_tensor, 0)], axis=0, name='labels')
-
+def _generate_batch(image, label):
         # TODO: Repasar que hacen todos los argumentos
-        images, labels = tf.train.shuffle_batch([images_tensor, labels_tensor], batch_size=32,
-                                                           capacity=10000, min_after_dequeue=3000, enqueue_many=True)
+        images, labels = tf.train.shuffle_batch([image, label],
+                                                batch_size=32,
+                                                capacity=10000,
+                                                min_after_dequeue=3000,
+                                                num_threads=16)
 
         return images, tf.reshape(labels, [32])
 
@@ -198,12 +201,51 @@ def _create_label_file(class_names, labels_path):
     labels_file.close()
 
 
+def get_random_entries(path, batch_size):
+    entries = []
+    random_entries = []
+    for entry in open(path).readlines():
+        entries.append(entry)
+
+    for i in range(0, batch_size):
+        random_entries.append(entries[random.randint(0, len(entries)-1)])
+
+    return entries
+
+
+def create_numpy_file(image_set):
+    images = []
+    labels = []
+    i = 0
+
+    for entry in open(image_set).readlines():
+        image, label = _get_image_and_label_from_entry(entry)
+
+        image = Image.open(image)
+
+        # Resize the image to have the required dimensions
+        image = image.resize((IMAGE_HEIGHT, IMAGE_WIDTH), Image.BILINEAR)
+        images.append(np.array(image))
+
+        # Convert the label to int
+        label = int(label)
+        labels.append(label)
+
+    images = np.array(images)
+    labels = np.array(labels)
+
+    np.save("/home/uc3m4/PycharmProjects/ft_flowers/data/training_images", arr=images)
+    np.save("/home/uc3m4/PycharmProjects/ft_flowers/data/training_labels", arr=labels)
+
+    print("Ficheros npy creados.")
+
+
 def main(none):
     unzip_input('/home/uc3m4/PycharmProjects/ft_flowers/data/flower_photos.tgz',
                 '/home/uc3m4/PycharmProjects/ft_flowers/data/photos')
     prepare_training_dataset('/home/uc3m4/PycharmProjects/ft_flowers/data/photos/flower_photos/')
-    distorted_input('/home/uc3m4/PycharmProjects/ft_flowers/data/photos/flower_photos/tulips/7069622551_348d41c327_n.jpg 0')
-    _generate_tensor_for_training("/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt")
+    create_numpy_file("/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt")
+
 
 if __name__ == "__main__":
     tf.app.run()
