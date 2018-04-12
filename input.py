@@ -213,10 +213,20 @@ def get_random_entries(path, batch_size):
     return entries
 
 
-def create_numpy_file(image_set):
+def create_numpy_file(image_set, save_path):
+    """ From the txt datasets 'image_path label' create numpy binary files
+
+        Args:
+            image_set: path to the txt with the dataset.
+            save_path: the path where you want to save your npy files.
+    """
+    images_path = os.path.join(save_path, "training_images")
+    labels_path = os.path.join(save_path, "training_labels")
+
+    # TODO: Comprobar si existen los ficheros
+
     images = []
     labels = []
-    i = 0
 
     for entry in open(image_set).readlines():
         image, label = _get_image_and_label_from_entry(entry)
@@ -234,17 +244,53 @@ def create_numpy_file(image_set):
     images = np.array(images)
     labels = np.array(labels)
 
-    np.save("/home/uc3m4/PycharmProjects/ft_flowers/data/training_images", arr=images)
-    np.save("/home/uc3m4/PycharmProjects/ft_flowers/data/training_labels", arr=labels)
+    np.save(os.path.join(save_path, "training_images"), arr=images)
+    np.save(os.path.join(save_path, "training_labels"), arr=labels)
 
-    print("Ficheros npy creados.")
+    print("Npy files created correctly.")
+
+
+def create_dataset(npy_images_file, npy_labels_file, batch_size=1):
+    """ Load the npy files and creates a dataset and iterator. For more information about tf.Data API:
+        https://www.tensorflow.org/programmers_guide/datasets.
+
+        Args:
+            npy_images_file: numpy binary file that has the images.
+            npy_labels_file: numpy binary file taht has the labels.
+            batch_size: number of images and labels in the batch. By default it is 1.
+
+        Return:
+            images: Numpy array containing all the images.
+            labels: Numpy array containing all the labels.
+            iterator: Iterator object for feeding the model.
+    """
+    images = np.load("/home/uc3m4/PycharmProjects/ft_flowers/data/training_images.npy")
+    labels = np.load("/home/uc3m4/PycharmProjects/ft_flowers/data/training_labels.npy")
+
+    images_placeholder = tf.placeholder(images.dtype, images.shape)
+    labels_placeholder = tf.placeholder(labels.dtype, labels.shape)
+
+    dataset = tf.data.Dataset.from_tensor_slices((images_placeholder, labels_placeholder))
+
+    batched_dataset = dataset.batch(100)
+
+    iterator = batched_dataset.make_initializable_iterator()
+
+    """with tf.Session() as sess:
+        print(sess.run(iterator.initializer, feed_dict={images_placeholder: images, labels_placeholder: labels}))
+        next_element = iterator.get_next()
+        print(sess.run(next_element))"""
+
+    return images, labels, iterator
 
 
 def main(none):
     unzip_input('/home/uc3m4/PycharmProjects/ft_flowers/data/flower_photos.tgz',
                 '/home/uc3m4/PycharmProjects/ft_flowers/data/photos')
     prepare_training_dataset('/home/uc3m4/PycharmProjects/ft_flowers/data/photos/flower_photos/')
-    create_numpy_file("/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt")
+    create_numpy_file("/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt",
+                      "/home/uc3m4/PycharmProjects/ft_flowers/data/")
+    create_dataset("/home/uc3m4/PycharmProjects/ft_flowers/data/training_images.npy")
 
 
 if __name__ == "__main__":
