@@ -337,6 +337,109 @@ def inception_v4(inputs, num_classes=1001, is_training=True,
         return logits, end_points
 
 
+def fine_tuning(bottleneck_tensor, images_shape, NUM_CLASSES):
+    with tf.variable_scope('fc_fine_tuning_1') as scope:
+        reshape = tf.reshape(bottleneck_tensor, [images_shape, -1])
+        dim = reshape.get_shape()[1].value
+        weights = _variable_with_weight_decay('weights', shape=[dim, 384],
+                                              stddev=0.04, wd=0.004)
+        biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
+        fc1 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
+        _activation_summary(fc1)
+
+    # local4
+    with tf.variable_scope('fc_fine_tuning_2') as scope:
+        weights = _variable_with_weight_decay('weights', shape=[384, 512],
+                                              stddev=0.04, wd=0.004)
+        biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
+        fc2 = tf.nn.relu(tf.matmul(fc1, weights) + biases, name=scope.name)
+        _activation_summary(fc2)
+
+    # local4
+    with tf.variable_scope('fc_fine_tuning_3') as scope:
+        weights = _variable_with_weight_decay('weights', shape=[512, 192],
+                                              stddev=0.04, wd=0.004)
+        biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
+        fc3 = tf.nn.relu(tf.matmul(fc2, weights) + biases, name=scope.name)
+        _activation_summary(fc3)
+
+    # linear layer(WX + b),
+    # We don't apply softmax here because
+    # tf.nn.sparse_softmax_cross_entropy_with_logits accepts the unscaled logits
+    # and performs the softmax internally for efficiency.
+    with tf.variable_scope('softmax_linear_fine_tuning') as scope:
+        weights = _variable_with_weight_decay('weights', [192, NUM_CLASSES],
+                                              stddev=1 / 192.0, wd=None)
+        biases = _variable_on_cpu('biases', [NUM_CLASSES],
+                                  tf.constant_initializer(0.0))
+        softmax_linear = tf.add(tf.matmul(fc3, weights), biases, name=scope.name)
+        _activation_summary(softmax_linear)
+
+    return softmax_linear
+
+
+def _variable_on_cpu(name, shape, initializer, trainable=True):
+    """Helper to create a Variable stored on CPU memory.
+
+    Args:
+      name: name of the variable
+      shape: list of ints
+      initializer: initializer for Variable
+
+    Returns:
+      Variable Tensor
+    """
+    with tf.device('/cpu:0'):
+        dtype = tf.float32
+        var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype, trainable=trainable)
+    return var
+
+
+def _variable_with_weight_decay(name, shape, stddev, wd, trainable=True):
+    """Helper to create an initialized Variable with weight decay.
+
+    Note that the Variable is initialized with a truncated normal distribution.
+    A weight decay is added only if one is specified.
+
+    Args:
+      name: name of the variable
+      shape: list of ints
+      stddev: standard deviation of a truncated Gaussian
+      wd: add L2Loss weight decay multiplied by this float. If None, weight
+          decay is not added for this Variable.
+
+    Returns:
+      Variable Tensor
+    """
+    dtype = tf.float32
+    var = _variable_on_cpu(
+        name,
+        shape,
+        tf.truncated_normal_initializer(stddev=stddev, dtype=dtype),
+        trainable=trainable)
+    if wd is not None:
+        weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
+        tf.add_to_collection('losses', weight_decay)
+    return var
+
+
+def _activation_summary(x):
+    """Helper to create summaries for activations.
+
+    Creates a summary that provides a histogram of activations.
+    Creates a summary that measures the sparsity of activations.
+
+    Args:
+      x: Tensor
+    Returns:
+      nothing
+    """
+    tensor_name = x.op.name
+    tf.summary.histogram(tensor_name + '/activations', x)
+    tf.summary.scalar(tensor_name + '/sparsity',
+                      tf.nn.zero_fraction(x))
+
+
 inception_v4.default_image_size = 299
 
 inception_v4_arg_scope = inception_utils.inception_arg_scope
