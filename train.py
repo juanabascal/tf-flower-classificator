@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-from model import inception_v4
+import model
 import input
 
 training_set_path = "/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt"
@@ -33,20 +33,24 @@ def train():
         with tf.Session() as sess:
             saver.restore(sess, tf.train.latest_checkpoint("/home/uc3m4/PycharmProjects/ft_flowers/data/checkpoints"))
 
-            for step in range(0, 20):
-                entries = input.get_random_entries(training_set_path, 32)
+        images, labels, images_placeholder, labels_placeholder, iterator = input.generate_batch_in_iterator("/home/uc3m4/PycharmProjects/ft_flowers/data/training_images.npy",
+                                                                                            "/home/uc3m4/PycharmProjects/ft_flowers/data/training_labels.npy", 32)
 
-                for entry in entries:
-                    image, label = input.distorted_input_entry(entry)
-                    logits, end_points = inception_v4(tf.expand_dims(image, 0))
+        next_element = iterator.get_next()
 
-                    # Set up all our weights to their initial default values.
-                    init = tf.global_variables_initializer()
-                    sess.run(init)
+        # Get the bottleneck tensor
+        bottleneck, end_points = model.inception_v4(next_element[0], num_classes=None)
+        logits = model.fine_tuning(bottleneck, end_points)
+        with tf.Session() as sess:
+            init = tf.global_variables_initializer()
+            sess.run(init)
+            sess.run(iterator.initializer, feed_dict={images_placeholder: images,
+                                                      labels_placeholder: labels})
 
-                    print(sess.run(logits))
-
-                print("Step", step)
+            for i in range(0, 1):
+                sess.run(next_element)
+                print(sess.run(logits))
+                print("Step:", i)
 
 
 def main(argv=None):
