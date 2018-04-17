@@ -20,6 +20,7 @@ from __future__ import print_function
 import tensorflow as tf
 import model
 import input
+from datetime import datetime
 
 training_set_path = "/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt"
 
@@ -36,21 +37,49 @@ def train():
         images, labels, images_placeholder, labels_placeholder, iterator = input.generate_batch_in_iterator("/home/uc3m4/PycharmProjects/ft_flowers/data/training_images.npy",
                                                                                             "/home/uc3m4/PycharmProjects/ft_flowers/data/training_labels.npy", 32)
 
-        next_element = iterator.get_next()
+        next_batch = iterator.get_next()
+        next_batch_images, next_batch_labels = next_batch
 
         # Get the bottleneck tensor
-        bottleneck, end_points = model.inception_v4(next_element[0], num_classes=None)
+        bottleneck, end_points = model.inception_v4(next_batch_images, num_classes=None)
         logits = model.fine_tuning(bottleneck, end_points)
+        loss = tf.reduce_mean(model.loss(logits, labels=tf.one_hot(next_batch_labels, 5)))
+        optimizer = tf.train.GradientDescentOptimizer(1)
+        train_op = optimizer.minimize(loss)
+
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
             sess.run(iterator.initializer, feed_dict={images_placeholder: images,
                                                       labels_placeholder: labels})
 
-            for i in range(0, 1):
-                sess.run(next_element)
-                print(sess.run(logits))
-                print("Step:", i)
+            sess.run(next_batch)
+            sess.run(next_batch_labels)
+
+
+            print('Empieza entrenamiento')
+            for i in range(0, 100):
+                sess.run(train_op)
+                if i % 10 is 0:
+                    print('Time:', datetime.now(), 'Loss:', sess.run(loss), 'Step:', i)
+                else:
+                    print('Time:', datetime.now(), 'Step:', i)
+                sess.run(next_batch)
+                sess.run(next_batch_labels)
+            print('Termina entrenamiento')
+
+
+def train_function(total_loss):
+    optimizer = tf.train.GradientDescentOptimizer(0.9)
+    train_op = tf.contrib.slim.learning.create_train_op(total_loss, optimizer)
+    logdir = './data/checkpoints/fine-tuning'
+
+    tf.contrib.slim.learning.train(
+        train_op,
+        logdir,
+        number_of_steps=1000,
+        save_summaries_secs=300,
+        save_interval_secs=600)
 
 
 def main(argv=None):
