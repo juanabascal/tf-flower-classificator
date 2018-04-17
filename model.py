@@ -360,6 +360,11 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
     return end_points['Predictions']
 
 
+def loss(predictions, labels):
+    loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=labels)
+    return loss
+
+
 def _activation_summary(x):
     """Helper to create summaries for activations.
 
