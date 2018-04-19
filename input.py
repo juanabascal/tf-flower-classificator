@@ -18,10 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import tarfile
+import pre_input
 import os
 from PIL import Image
 import numpy as np
+import tfrecord_utils
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -41,152 +42,7 @@ http://download.tensorflow.org/example_images/flower_photos.tgz
 """
 
 
-def unzip_input(compressed_file, dest_path):
-    """ Unzip the zip file with all the images from the dataset.
-
-    Args:
-        compressed_file: the file to be unzipped
-        dest_path: path where you want to save the pictures
-    """
-    if os.path.exists(dest_path):
-        print('Destination path', dest_path, "already exists.")
-        return
-
-    print('Extracting zip content...')
-    zip_ref = tarfile.open(compressed_file, 'r')
-    zip_ref.extractall(dest_path)
-    zip_ref.close()
-    print('All zip content extracted to', dest_path)
-
-
-def create_datasets(images_path, save_path):
-    """ Generates the eval and train datasets from the photos directory. It also creates a file with
-        the class names for the labels.
-
-        Args:
-            images_path: path to the folder where the input is stored
-            save_path: path where the file are being stored
-    """
-    if not os.path.exists(images_path):
-        print('Data path', images_path, "does not exist.")
-        return
-
-    print("Creating datasets...")
-
-    dir_paths = _get_directories(images_path)
-    class_names = _get_class_names(images_path)
-
-    _create_training_set(dir_paths, os.path.join(save_path, 'training_set.txt'))
-    _create_eval_set(dir_paths, os.path.join(save_path, 'eval_set.txt'))
-    _create_label_file(class_names, os.path.join(save_path, 'labels.txt'))
-
-    print("All datasets created correctly in", save_path)
-
-
-
-def _get_directories(data_path):
-    """ Get a list of directories where the photos are stored.
-
-        Args:
-            data_path: path to the folder where the folders containing the input are stored
-
-        Return:
-            dir_paths: list of the paths where the input is stored
-    """
-    dir_paths = []
-
-    for item in os.listdir(data_path):
-        directory = os.path.join(data_path, item)
-        if os.path.isdir(directory):
-            dir_paths.append(directory)
-
-    return dir_paths
-
-
-def _get_class_names(data_path):
-    """ Get a list with the class names. This list is get from the folders' name.
-
-        Args:
-            data_path: path to the folder where the folders containing the input are stored
-
-        Return:
-            class_names: list of the classes' names.
-    """
-    class_names = []
-
-    for item in os.listdir(data_path):
-        directory = os.path.join(data_path, item)
-        if os.path.isdir(directory):
-            class_names.append(item)
-
-    return class_names
-
-
-def _create_training_set(data_paths, training_set_path, number_of_items_per_class=500):
-    """ Create a text file storing the path to the images and there class label in one row.
-
-        Args:
-            data_paths: list of the paths where the input is stored
-            training_set_path: path where the file is being stored
-            number_of_items_per_class: Number of items per class you want to have in your training dataset. This
-                number must be smaller than the maximum number of images per class. By default each class will
-                have 500 entries for training.
-    """
-    if os.path.exists(training_set_path):
-        print("Training set file already exists.")
-        return
-
-    training_set_file = open(training_set_path, 'w')
-
-    for path in data_paths:
-        for photo in os.listdir(path)[0:number_of_items_per_class]:
-            photo_path = os.path.join(path, photo)
-            training_entry = "%s %s \n" % (photo_path, data_paths.index(path))
-            training_set_file.write(training_entry)
-
-    training_set_file.close()
-
-
-def _create_eval_set(data_paths, eval_set_path, number_of_items_per_class=500):
-    """ Create a text file storing the path to the images and there class label in one row.
-
-        Args:
-            data_paths: list of the paths where the input is stored
-            eval_set_path: path where the file is being stored
-            number_of_items_per_class: Number of items per class you want to have in your training dataset. This
-                number must be smaller than the maximum number of images per class. The images used for creating the
-                eval dataset are the ones which are not used in training.
-    """
-    if os.path.exists(eval_set_path):
-        print("Eval set file already exists.")
-        return
-
-    eval_set_file = open(eval_set_path, 'w')
-
-    for path in data_paths:
-        for photo in os.listdir(path)[number_of_items_per_class:]:
-            photo_path = os.path.join(path, photo)
-            eval_entry = "%s %s \n" % (photo_path, data_paths.index(path))
-            eval_set_file.write(eval_entry)
-
-    eval_set_file.close()
-
-
-def _create_label_file(class_names, labels_path):
-    """ Saves the classes' names in a txt file. """
-    if os.path.exists(labels_path):
-        print("Training set file already exists.")
-        return
-
-    labels_file = open(labels_path, 'w')
-
-    for class_name in class_names:
-        labels_file.write("%s %s \n" % (class_name, class_names.index(class_name)))
-
-    labels_file.close()
-
-
-def create_numpy_file(image_set, save_path):
+def convert_to_numpy(image_set, save_path, to_file=False):
     """ TODO: Preparar el dataset para imagenes de cualquier tamaño
     See guide: https://www.tensorflow.org/programmers_guide/datasets#batching_tensors_with_padding
     From the txt datasets 'image_path label' create numpy binary files
@@ -223,13 +79,93 @@ def create_numpy_file(image_set, save_path):
     images = np.array(images, dtype=np.float32)
     labels = np.array(labels, dtype=np.int64)
 
+    if not to_file:
+        return images, labels
+
     np.save(os.path.join(save_path, "training_images"), arr=images)
     np.save(os.path.join(save_path, "training_labels"), arr=labels)
 
     print("Npy files created correctly in", images_path, "and", labels_path)
 
 
-def generate_batch_in_iterator(npy_images_file, npy_labels_file, batch_size=1):
+def distorted_input(image, label):
+    # Randomly flip the image horizontally.
+    distorted_image = tf.image.random_flip_left_right(image)
+
+    # TODO: Make the order of following operations random.
+    # Because these operations are not commutative, consider randomizing
+    # the order their operation.
+    distorted_image = tf.image.random_brightness(distorted_image,
+                                                 max_delta=63)
+    distorted_image = tf.image.random_contrast(distorted_image,
+                                               lower=0.2, upper=1.8)
+
+    norm_image = tf.image.per_image_standardization(distorted_image)
+
+    return norm_image, label
+
+
+def norm_input(image, label):
+    norm_image = tf.image.per_image_standardization(image)
+
+    return norm_image, label
+
+
+def generate_tfrecord_files(image_set, save_file):
+    if os.path.exists(save_file):
+        print("TFRecord file already exists.")
+        return
+
+    print("Creating TFRecord file...")
+
+    # Open a TFRecordWriter for the output-file.
+    with tf.python_io.TFRecordWriter(save_file) as writer:
+
+        for entry in open(image_set):
+            tf_example = create_tf_example(entry)
+            writer.write(tf_example.SerializeToString())
+
+        writer.close()
+
+
+def create_tf_example(entry):
+    image_path, label = _get_image_and_label_from_entry(entry)
+
+    image = Image.open(image_path)
+    image_np = np.array(image)
+    image_raw = image_np.tostring()
+
+    feature = {
+        'image': tfrecord_utils.bytes_feature(image_raw),
+        'image/height': tfrecord_utils.int64_feature(image_np.shape[0]),
+        'image/width': tfrecord_utils.int64_feature(image_np.shape[1]),
+        'label': tfrecord_utils.int64_feature(label),
+    }
+
+    tf_label_and_data = tf.train.Example(features=tf.train.Features(feature=feature))
+
+    return tf_label_and_data
+
+
+def consume_tfrecord(distorted=True):
+    dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord"))
+    dataset = dataset.map(tfrecord_utils.parse)
+
+    if distorted is True:
+        dataset = dataset.map(distorted_input)
+    else:
+        dataset = dataset.map(norm_input)
+
+    iterator = dataset.make_one_shot_iterator()
+    next_element = iterator.get_next()
+
+    with tf.Session() as sess:
+        print(sess.run(next_element))
+        print(sess.run(next_element))
+        print(sess.run(next_element))
+
+
+def generate_batch_from_np(npy_images_file, npy_labels_file, batch_size=1):
     """ Load the npy files and creates a dataset and iterator. For more information about tf.Data API:
         https://www.tensorflow.org/programmers_guide/datasets.
 
@@ -283,9 +219,13 @@ def _get_image_and_label_from_entry(dataset_entry):
 
 def main(none):
     """ Run this function to create the datasets and the numpy array files. """
-    unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
-    create_datasets(FLAGS.images_path, FLAGS.data_path)
-    create_numpy_file(os.path.join(FLAGS.data_path, "training_set.txt"), FLAGS.data_path)
+    pre_input.unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
+    pre_input.create_datasets(FLAGS.images_path, FLAGS.data_path)
+    convert_to_numpy(os.path.join(FLAGS.data_path, "training_set.txt"), FLAGS.data_path, to_file=True)
+    generate_tfrecord_files(os.path.join(FLAGS.data_path, "training_set.txt"),
+                            os.path.join(FLAGS.data_path, "flowers.tfrecord"))
+
+    consume_tfrecord()
 
 
 if __name__ == "__main__":
