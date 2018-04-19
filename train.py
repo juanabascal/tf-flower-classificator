@@ -28,6 +28,9 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('train_dir', './data/train',
                            """Directory where to write event logs """
                            """and checkpoint.""")
+tf.app.flags.DEFINE_string('data_dir', './data/images.tfrecord',
+                           """Path to the .tfrecord file """
+                           """and checkpoint.""")
 tf.app.flags.DEFINE_integer('max_steps', 1000000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
@@ -41,10 +44,13 @@ def train():
     with tf.Graph().as_default() as g:
         global_step = tf.train.get_or_create_global_step()
 
-        image_batch, label_batch = input.input_fn("./data/images.tfrecord")
+        image_batch, label_batch = input.input_fn(FLAGS.data_dir)
 
+        #num_classes is None for fine tunning
         bottleneck, end_points = model.inception_v4(image_batch, num_classes=None)
         logits = model.fine_tuning(bottleneck, end_points)
+
+        #TODO: Add a function to get train_op
         loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=tf.one_hot(label_batch, 5)))
         optimizer = tf.train.GradientDescentOptimizer(0.1)
         train_op = optimizer.minimize(loss, global_step=global_step)
@@ -84,7 +90,10 @@ def train():
                 config=tf.ConfigProto(
                     log_device_placement=FLAGS.log_device_placement)) as mon_sess:
             while not mon_sess.should_stop():
-                mon_sess.run(train_op)
+                print(mon_sess.run(logits))
+                print()
+                print(mon_sess.run(labels))
+                # mon_sess.run(train_op)
 
 
 def main(argv=None):
