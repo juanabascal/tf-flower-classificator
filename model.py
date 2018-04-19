@@ -350,7 +350,6 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
     net = slim.dropout(bottleneck_tensor, dropout_keep_prob, scope='Dropout_1b')
     net = slim.flatten(net, scope='PreLogitsFlatten')
     end_points['PreLogitsFlatten'] = net
-
     # 1536
     logits = slim.fully_connected(net, num_classes, activation_fn=None,
                                   scope='Logits')
@@ -358,6 +357,11 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
     end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
 
     return end_points['Predictions']
+
+
+def loss(predictions, labels):
+    loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=labels)
+    return loss
 
 
 def _activation_summary(x):

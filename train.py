@@ -51,7 +51,7 @@ def train():
         logits = model.fine_tuning(bottleneck, end_points)
 
         #TODO: Add a function to get train_op
-        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=tf.one_hot(label_batch, 5)))
+        loss = model.loss(logits, label_batch)
         optimizer = tf.train.GradientDescentOptimizer(0.1)
         train_op = optimizer.minimize(loss, global_step=global_step)
 
@@ -90,10 +90,9 @@ def train():
                 config=tf.ConfigProto(
                     log_device_placement=FLAGS.log_device_placement)) as mon_sess:
             while not mon_sess.should_stop():
-                print(mon_sess.run(logits))
-                print()
-                print(mon_sess.run(labels))
-                # mon_sess.run(train_op)
+                mon_sess.run(train_op)
+
+
 
 
 def main(argv=None):
