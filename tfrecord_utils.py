@@ -69,7 +69,7 @@ def parse(serialized):
     image_raw = parsed_example['image']
     height = tf.cast(parsed_example['image/height'], tf.int32)
     width = tf.cast(parsed_example['image/width'], tf.int32)
-    label = parsed_example['label']
+    label = tf.cast(parsed_example['label'], tf.int32)
 
     # Decode the raw bytes so it becomes a tensor with type.
     image = tf.decode_raw(image_raw, tf.uint8)

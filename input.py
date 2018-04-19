@@ -43,8 +43,12 @@ http://download.tensorflow.org/example_images/flower_photos.tgz
 
 
 def distorted_input(image, label):
+    # Random crop image
+    cropped_image = tf.image.resize_image_with_crop_or_pad(image, 319, 319)
+    cropped_image = tf.random_crop(cropped_image, [299, 299, 3])
+
     # Randomly flip the image horizontally.
-    distorted_image = tf.image.random_flip_left_right(image)
+    distorted_image = tf.image.random_flip_left_right(cropped_image)
 
     # TODO: Make the order of following operations random.
     # Because these operations are not commutative, consider randomizing
@@ -55,6 +59,9 @@ def distorted_input(image, label):
                                                lower=0.2, upper=1.8)
 
     norm_image = tf.image.per_image_standardization(distorted_image)
+
+    # Convert
+    label = tf.one_hot(label, 5, dtype=tf.int32)
 
     return norm_image, label
 
@@ -105,18 +112,23 @@ def consume_tfrecord(distorted=True):
     dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord"))
     dataset = dataset.map(tfrecord_utils.parse)
 
+    print(dataset)
+
     if distorted is True:
         dataset = dataset.map(distorted_input)
     else:
         dataset = dataset.map(norm_input)
+
+    dataset = dataset.shuffle(buffer_size=2560)
+    dataset = dataset.padded_batch(32, padded_shapes=([299, 299, 3], [5]))
 
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
 
     with tf.Session() as sess:
         print(sess.run(next_element))
-        print(sess.run(next_element))
-        print(sess.run(next_element))
+
+    return next_element
 
 
 def _get_image_and_label_from_entry(dataset_entry):
