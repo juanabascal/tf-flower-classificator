@@ -34,6 +34,13 @@ import inception_utils
 
 slim = tf.contrib.slim
 
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_integer('num_classes', 1001,
+                            """Number of classes of the model.""")
+tf.app.flags.DEFINE_float('dropout_keep_prob', 0.8,
+                          """The fraction to keep before final layer.""")
+
 
 def block_inception_a(inputs, scope=None, reuse=None):
     """Builds Inception-A block for Inception v4 network."""
@@ -197,7 +204,8 @@ def inception_v4_base(inputs, final_endpoint='Mixed_7d', scope=None):
                     branch_1 = slim.conv2d(net, 96, [3, 3], stride=2, padding='VALID',
                                            scope='Conv2d_0a_3x3')
                 net = tf.concat(axis=3, values=[branch_0, branch_1])
-                if add_and_check_final('Mixed_3a', net): return net, end_points
+                if add_and_check_final('Mixed_3a', net):
+                    return net, end_points
 
             # 73 x 73 x 160
             with tf.variable_scope('Mixed_4a'):
@@ -337,90 +345,19 @@ def inception_v4(inputs, num_classes=1001, is_training=True,
         return logits, end_points
 
 
-def fine_tuning(bottleneck_tensor, images_shape, NUM_CLASSES):
-    with tf.variable_scope('fc_fine_tuning_1') as scope:
-        reshape = tf.reshape(bottleneck_tensor, [images_shape, -1])
-        dim = reshape.get_shape()[1].value
-        weights = _variable_with_weight_decay('weights', shape=[dim, 384],
-                                              stddev=0.04, wd=0.004)
-        biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
-        fc1 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
-        _activation_summary(fc1)
+def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=0.8):
+    # 1 x 1 x 1536
+    net = slim.dropout(bottleneck_tensor, dropout_keep_prob, scope='Dropout_1b')
+    net = slim.flatten(net, scope='PreLogitsFlatten')
+    end_points['PreLogitsFlatten'] = net
 
-    # local4
-    with tf.variable_scope('fc_fine_tuning_2') as scope:
-        weights = _variable_with_weight_decay('weights', shape=[384, 512],
-                                              stddev=0.04, wd=0.004)
-        biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
-        fc2 = tf.nn.relu(tf.matmul(fc1, weights) + biases, name=scope.name)
-        _activation_summary(fc2)
+    # 1536
+    logits = slim.fully_connected(net, num_classes, activation_fn=None,
+                                  scope='Logits')
+    end_points['Logits'] = logits
+    end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
 
-    # local4
-    with tf.variable_scope('fc_fine_tuning_3') as scope:
-        weights = _variable_with_weight_decay('weights', shape=[512, 192],
-                                              stddev=0.04, wd=0.004)
-        biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
-        fc3 = tf.nn.relu(tf.matmul(fc2, weights) + biases, name=scope.name)
-        _activation_summary(fc3)
-
-    # linear layer(WX + b),
-    # We don't apply softmax here because
-    # tf.nn.sparse_softmax_cross_entropy_with_logits accepts the unscaled logits
-    # and performs the softmax internally for efficiency.
-    with tf.variable_scope('softmax_linear_fine_tuning') as scope:
-        weights = _variable_with_weight_decay('weights', [192, NUM_CLASSES],
-                                              stddev=1 / 192.0, wd=None)
-        biases = _variable_on_cpu('biases', [NUM_CLASSES],
-                                  tf.constant_initializer(0.0))
-        softmax_linear = tf.add(tf.matmul(fc3, weights), biases, name=scope.name)
-        _activation_summary(softmax_linear)
-
-    return softmax_linear
-
-
-def _variable_on_cpu(name, shape, initializer, trainable=True):
-    """Helper to create a Variable stored on CPU memory.
-
-    Args:
-      name: name of the variable
-      shape: list of ints
-      initializer: initializer for Variable
-
-    Returns:
-      Variable Tensor
-    """
-    with tf.device('/cpu:0'):
-        dtype = tf.float32
-        var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype, trainable=trainable)
-    return var
-
-
-def _variable_with_weight_decay(name, shape, stddev, wd, trainable=True):
-    """Helper to create an initialized Variable with weight decay.
-
-    Note that the Variable is initialized with a truncated normal distribution.
-    A weight decay is added only if one is specified.
-
-    Args:
-      name: name of the variable
-      shape: list of ints
-      stddev: standard deviation of a truncated Gaussian
-      wd: add L2Loss weight decay multiplied by this float. If None, weight
-          decay is not added for this Variable.
-
-    Returns:
-      Variable Tensor
-    """
-    dtype = tf.float32
-    var = _variable_on_cpu(
-        name,
-        shape,
-        tf.truncated_normal_initializer(stddev=stddev, dtype=dtype),
-        trainable=trainable)
-    if wd is not None:
-        weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
-        tf.add_to_collection('losses', weight_decay)
-    return var
+    return end_points['Predictions']
 
 
 def _activation_summary(x):

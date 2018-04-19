@@ -20,6 +20,7 @@ from __future__ import print_function
 import tensorflow as tf
 import tarfile
 import os
+from matplotlib.image import imread
 from PIL import Image
 import numpy as np
 
@@ -186,7 +187,7 @@ def _create_label_file(class_names, labels_path):
     labels_file.close()
 
 
-def create_numpy_file(image_set, save_path):
+def create_tfrecord_file(image_set, save_path):
     """ TODO: Preparar el dataset para imagenes de cualquier tamaño
     See guide: https://www.tensorflow.org/programmers_guide/datasets#batching_tensors_with_padding
     From the txt datasets 'image_path label' create numpy binary files
@@ -195,72 +196,145 @@ def create_numpy_file(image_set, save_path):
             image_set: path to the txt with the dataset.
             save_path: the path where you want to save your npy files.
     """
-    images_path = os.path.join(save_path, "training_images.npy")
-    labels_path = os.path.join(save_path, "training_labels.npy")
+    print("Creating TfRecord files...")
 
-    if os.path.exists(images_path) and os.path.exists(labels_path):
-        print("Npy files already exists.")
+    if os.path.exists(save_path):
+        print("tfRecord file already exists.")
         return
 
-    print("Creating numpy files...")
+    with tf.python_io.TFRecordWriter(save_path) as writer:
 
-    images = []
-    labels = []
+        # Iterate over all the image-paths and class-labels.
+        for entry in open(image_set).readlines():
 
-    for entry in open(image_set).readlines():
-        image, label = _get_image_and_label_from_entry(entry)
+            image, label = _get_image_and_label_from_entry(entry)
 
-        image = Image.open(image)
+            img = imread(image)
+            height = img.shape[0]
+            widht = img.shape[1]
 
-        # Resize the image to have the required dimensions
-        image = image.resize((FLAGS.image_size, FLAGS.image_size), Image.BILINEAR)
-        images.append(np.array(image))
+            # Convert the image to raw bytes.
+            img_bytes = img.tostring()
 
-        # Convert the label to int
-        label = int(label)
-        labels.append(label)
+            # Create a dict with the data we want to save in the
+            # TFRecords file. You can add more relevant data here.
+            data = \
+                {
+                    'image': tf.train.Feature(bytes_list=tf.train.BytesList(value=[img_bytes])),
+                    'label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label])),
+                    'height': tf.train.Feature(int64_list=tf.train.Int64List(value=[height])),
+                    'width': tf.train.Feature(int64_list=tf.train.Int64List(value=[widht]))
+                }
 
-    images = np.array(images, dtype=np.float32)
-    labels = np.array(labels, dtype=np.int64)
+            # Wrap the data as TensorFlow Features.
+            feature = tf.train.Features(feature=data)
 
-    np.save(os.path.join(save_path, "training_images"), arr=images)
-    np.save(os.path.join(save_path, "training_labels"), arr=labels)
+            # Wrap again as a TensorFlow Example.
+            example = tf.train.Example(features=feature)
 
-    print("Npy files created correctly in", images_path, "and", labels_path)
+            # Serialize the data.
+            serialized = example.SerializeToString()
+
+            # Write the serialized data to the TFRecords file.
+            writer.write(serialized)
 
 
-def generate_batch_in_iterator(npy_images_file, npy_labels_file, batch_size=1):
-    """ Load the npy files and creates a dataset and iterator. For more information about tf.Data API:
-        https://www.tensorflow.org/programmers_guide/datasets.
+def input_fn(filenames, train=True, batch_size=32, buffer_size=2560):
+    # Args:
+    # filenames:   Filenames for the TFRecords files.
+    # train:       Boolean whether training (True) or testing (False).
+    # batch_size:  Return batches of this size.
+    # buffer_size: Read buffers of this size. The random shuffling
+    #              is done on the buffer, so it must be big enough.
 
-        Args:
-            npy_images_file: numpy binary file that has the images.
-            npy_labels_file: numpy binary file taht has the labels.
-            batch_size: number of images and labels in the batch. By default it is 1.
+    # Create a TensorFlow Dataset-object which has functionality
+    # for reading and shuffling data from TFRecords files.
+    dataset = tf.data.TFRecordDataset(filenames=filenames)
 
-        Return:
-            images: Numpy array containing all the images.
-            labels: Numpy array containing all the labels.
-            iterator: Iterator object for feeding the model.
-    """
-    images = np.load(npy_images_file)
-    labels = np.load(npy_labels_file)
+    # Parse the serialized data in the TFRecords files.
+    # This returns TensorFlow tensors for the image and labels.
+    dataset = dataset.map(parse)
 
-    images_placeholder = tf.placeholder(images.dtype, (None, 299, 299, 3))
-    labels_placeholder = tf.placeholder(labels.dtype, None)
+    if train:
+        # If training then read a buffer of the given size and
+        # randomly shuffle it.
+        dataset = dataset.shuffle(buffer_size=buffer_size)
 
-    dataset = tf.data.Dataset.from_tensor_slices((images_placeholder, labels_placeholder))
+        # Allow infinite reading of the data.
+        num_repeat = None
+    else:
+        # If testing then don't shuffle the data.
 
-    # Shuffle the dataset and create a batch
-    dataset = dataset.shuffle(buffer_size=2500)
+        # Only go through the data once.
+        num_repeat = 1
+
+    # Repeat the dataset the given number of times.
+    dataset = dataset.repeat(num_repeat)
+
+    # Get a batch of data with the given size.
+    # dataset = dataset.apply(tf.contrib.data.unbatch())
     dataset = dataset.batch(batch_size)
 
-    iterator = dataset.make_initializable_iterator()
+
+    # Create an iterator for the dataset and the above modifications.
+    iterator = dataset.make_one_shot_iterator()
+
+    # Get the next batch of images and labels.
+    images_batch, labels_batch = iterator.get_next()
+
+    return images_batch, labels_batch
 
     # Uncomment this line to try the iterator before feeding the model
     # exec_iter(images, labels, images_placeholder, labels_placeholder, iterator)
 
-    return images, labels, images_placeholder, labels_placeholder, iterator
+
+def parse(serialized):
+    # Define a dict with the data-names and types we expect to
+    # find in the TFRecords file.
+    # It is a bit awkward that this needs to be specified again,
+    # because it could have been written in the header of the
+    # TFRecords file instead.
+    features = \
+        {
+            'image': tf.FixedLenFeature([], tf.string),
+            'label': tf.FixedLenFeature([], tf.int64),
+            'height': tf.FixedLenFeature([], tf.int64),
+            'width': tf.FixedLenFeature([], tf.int64)
+        }
+
+    # Parse the serialized data so we get a dict with our data.
+    parsed_example = tf.parse_single_example(serialized=serialized,
+                                             features=features)
+
+    # Get the image as raw bytes.
+    image_raw = parsed_example['image']
+
+    # Decode the raw bytes so it becomes a tensor with type.
+    image = tf.decode_raw(image_raw, tf.uint8)
+
+    # The type is now uint8 but we need it to be float.
+    image = tf.cast(image, tf.float32)
+
+    # image = tf.reshape(image, , parsed_example['width'], 3])
+    height = tf.cast(parsed_example['height'], tf.int32)
+    width = tf.cast(parsed_example['width'], tf.int32)
+
+    image = tf.reshape(image, [height, width, 3])
+
+    if height < 299:
+        image = tf.image.resize_image_with_crop_or_pad(image, 299, width)
+    if width < 299:
+        image = tf.image.resize_image_with_crop_or_pad(image, width, 299)
+
+    image = tf.random_crop(image, [299, 299, 3])
+
+    image = tf.image.per_image_standardization(image)
+    # Get the label associated with the image.
+    label = parsed_example['label']
+
+
+    # The image and label are now correct TensorFlow types.
+    return image, label
 
 
 def _exec_iter(images, labels, images_placeholder, labels_placeholder, iterator):
@@ -285,7 +359,7 @@ def main(none):
     """ Run this function to create the datasets and the numpy array files. """
     unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
     create_datasets(FLAGS.images_path, FLAGS.data_path)
-    create_numpy_file(os.path.join(FLAGS.data_path, "training_set.txt"), FLAGS.data_path)
+    create_tfrecord_file(os.path.join(FLAGS.data_path, "training_set.txt"), os.path.join(FLAGS.data_path, "images.tfrecord"))
 
 
 if __name__ == "__main__":

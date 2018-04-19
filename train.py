@@ -18,35 +18,73 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-from model import inception_v4
+import model
+import time
 import input
+from datetime import datetime
 
-training_set_path = "/home/uc3m4/PycharmProjects/ft_flowers/data/training_set.txt"
+FLAGS = tf.app.flags.FLAGS
 
+tf.app.flags.DEFINE_string('train_dir', './data/train',
+                           """Directory where to write event logs """
+                           """and checkpoint.""")
+tf.app.flags.DEFINE_integer('max_steps', 1000000,
+                            """Number of batches to run.""")
+tf.app.flags.DEFINE_integer('batch_size', 32,
+                            """Size of batches.""")
+tf.app.flags.DEFINE_boolean('log_device_placement', False,
+                            """Whether to log device placement.""")
+tf.app.flags.DEFINE_integer('log_frequency', 10,
+                            """How often to log results to the console.""")
 
 def train():
     with tf.Graph().as_default() as g:
         global_step = tf.train.get_or_create_global_step()
 
-        saver = tf.train.Saver()
+        image_batch, label_batch = input.input_fn("./data/images.tfrecord")
 
-        with tf.Session() as sess:
-            saver.restore(sess, tf.train.latest_checkpoint("/home/uc3m4/PycharmProjects/ft_flowers/data/checkpoints"))
+        bottleneck, end_points = model.inception_v4(image_batch, num_classes=None)
+        logits = model.fine_tuning(bottleneck, end_points)
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=tf.one_hot(label_batch, 5)))
+        optimizer = tf.train.GradientDescentOptimizer(0.1)
+        train_op = optimizer.minimize(loss, global_step=global_step)
 
-            for step in range(0, 20):
-                entries = input.get_random_entries(training_set_path, 32)
 
-                for entry in entries:
-                    image, label = input.distorted_input_entry(entry)
-                    logits, end_points = inception_v4(tf.expand_dims(image, 0))
+        class _LoggerHook(tf.train.SessionRunHook):
+            """Logs loss and runtime."""
 
-                    # Set up all our weights to their initial default values.
-                    init = tf.global_variables_initializer()
-                    sess.run(init)
+            def begin(self):
+                self._step = -1
+                self._start_time = time.time()
 
-                    print(sess.run(logits))
+            def before_run(self, run_context):
+                self._step += 1
+                return tf.train.SessionRunArgs(loss)  # Asks for loss value.
 
-                print("Step", step)
+            def after_run(self, run_context, run_values):
+                if self._step % FLAGS.log_frequency == 0:
+                    current_time = time.time()
+                    duration = current_time - self._start_time
+                    self._start_time = current_time
+
+                    loss_value = run_values.results
+                    examples_per_sec = FLAGS.log_frequency * FLAGS.batch_size / duration
+                    sec_per_batch = float(duration / FLAGS.log_frequency)
+
+                    format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
+                                  'sec/batch)')
+                    print(format_str % (datetime.now(), self._step, loss_value,
+                                        examples_per_sec, sec_per_batch))
+
+        with tf.train.MonitoredTrainingSession(
+                checkpoint_dir=FLAGS.train_dir,
+                hooks=[tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
+                       tf.train.NanTensorHook(loss),
+                       _LoggerHook()],
+                config=tf.ConfigProto(
+                    log_device_placement=FLAGS.log_device_placement)) as mon_sess:
+            while not mon_sess.should_stop():
+                mon_sess.run(train_op)
 
 
 def main(argv=None):
