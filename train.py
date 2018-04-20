@@ -23,13 +23,8 @@ import time
 import input
 from datetime import datetime
 
-FLAGS = tf.app.flags.FLAGS
-
-tf.app.flags.DEFINE_string('train_dir', './data/train',
+tf.app.flags.DEFINE_string('ckpt_dir', '/home/uc3m4/PycharmProjects/ft_flowers/data/checkpoint',
                            """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_string('data_dir', './data/images.tfrecord',
-                           """Path to the .tfrecord file """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_integer('max_steps', 1000000,
                             """Number of batches to run.""")
@@ -40,60 +35,46 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 tf.app.flags.DEFINE_integer('log_frequency', 10,
                             """How often to log results to the console.""")
 
+FLAGS = tf.app.flags.FLAGS
+
+
 def train():
+    print(FLAGS.ckpt_dir)
+
     with tf.Graph().as_default() as g:
         global_step = tf.train.get_or_create_global_step()
 
-        image_batch, label_batch = input.input_fn(FLAGS.data_dir)
+        iterator = input.consume_tfrecord()
+        images_batch, labels_batch = iterator.get_next()
 
-        #num_classes is None for fine tunning
-        bottleneck, end_points = model.inception_v4(image_batch, num_classes=None)
+        saver = tf.train.Saver()
+
+        with tf.Session() as sess:
+            saver.restore(sess, tf.train.latest_checkpoint("./data/checkpoints"))
+
+        # Num_classes is None for fine tunning
+        bottleneck, end_points = model.inception_v4(images_batch, num_classes=None, is_training=False)
         logits = model.fine_tuning(bottleneck, end_points)
 
         #TODO: Add a function to get train_op
-        loss = model.loss(logits, label_batch)
-        optimizer = tf.train.GradientDescentOptimizer(0.1)
+        loss, loss_mean = model.loss(logits, labels_batch)
+        optimizer = tf.train.GradientDescentOptimizer(0.5)
         train_op = optimizer.minimize(loss, global_step=global_step)
 
+        with tf.Session() as sess:
+            init = tf.global_variables_initializer()
+            sess.run(init)
 
-        class _LoggerHook(tf.train.SessionRunHook):
-            """Logs loss and runtime."""
+            print('Training begin')
+            for i in range(0, 2000):
+                sess.run(train_op)
+                if i % 10 is 0:
+                    print('Time:', datetime.now(), 'Loss:', sess.run(loss_mean), 'Step:', i)
+                else:
+                    print('Time:', datetime.now(), 'Step:', i)
+                sess.run([images_batch, labels_batch])
 
-            def begin(self):
-                self._step = -1
-                self._start_time = time.time()
-
-            def before_run(self, run_context):
-                self._step += 1
-                return tf.train.SessionRunArgs(loss)  # Asks for loss value.
-
-            def after_run(self, run_context, run_values):
-                if self._step % FLAGS.log_frequency == 0:
-                    current_time = time.time()
-                    duration = current_time - self._start_time
-                    self._start_time = current_time
-
-                    loss_value = run_values.results
-                    examples_per_sec = FLAGS.log_frequency * FLAGS.batch_size / duration
-                    sec_per_batch = float(duration / FLAGS.log_frequency)
-
-                    format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
-                                  'sec/batch)')
-                    print(format_str % (datetime.now(), self._step, loss_value,
-                                        examples_per_sec, sec_per_batch))
-
-        with tf.train.MonitoredTrainingSession(
-                checkpoint_dir=FLAGS.train_dir,
-                hooks=[tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
-                       tf.train.NanTensorHook(loss),
-                       _LoggerHook()],
-                config=tf.ConfigProto(
-                    log_device_placement=FLAGS.log_device_placement)) as mon_sess:
-            while not mon_sess.should_stop():
-                mon_sess.run(train_op)
-
-
-
+            print('Training ends')
 
 def main(argv=None):
     train()
