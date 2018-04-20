@@ -39,7 +39,6 @@ FLAGS = tf.app.flags.FLAGS
 
 
 def train():
-    print(FLAGS.ckpt_dir)
 
     with tf.Graph().as_default() as g:
         global_step = tf.train.get_or_create_global_step()
@@ -57,22 +56,24 @@ def train():
         logits = model.fine_tuning(bottleneck, end_points)
 
         #TODO: Add a function to get train_op
-        loss, loss_mean = model.loss(logits, labels_batch)
+        loss  = model.loss(logits, labels_batch)
         optimizer = tf.train.GradientDescentOptimizer(0.5)
         train_op = optimizer.minimize(loss, global_step=global_step)
+
+        print(loss)
 
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
+            sess.run([images_batch, labels_batch])
 
             print('Training begin')
             for i in range(0, 2000):
                 sess.run(train_op)
                 if i % 10 is 0:
-                    print('Time:', datetime.now(), 'Loss:', sess.run(loss_mean), 'Step:', i)
+                    print('Time:', datetime.now(), 'Loss:', sess.run(loss), 'Step:', i)
                 else:
                     print('Time:', datetime.now(), 'Step:', i)
-                sess.run([images_batch, labels_batch])
 
             print('Training ends')
 

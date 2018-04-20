@@ -362,8 +362,9 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
 def loss(predictions, labels):
     loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=labels)
     cross_entropy_mean = tf.reduce_mean(loss, name='cross_entropy')
+    tf.add_to_collection('losses', cross_entropy_mean)
 
-    return loss, cross_entropy_mean
+    return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
 
 def _activation_summary(x):
@@ -381,6 +382,33 @@ def _activation_summary(x):
     tf.summary.histogram(tensor_name + '/activations', x)
     tf.summary.scalar(tensor_name + '/sparsity',
                       tf.nn.zero_fraction(x))
+
+
+def _add_loss_summaries(total_loss):
+    """Add summaries for losses in CIFAR-10 model.
+
+    Generates moving average for all losses and associated summaries for
+    visualizing the performance of the network.
+
+    Args:
+      total_loss: Total loss from loss().
+    Returns:
+      loss_averages_op: op for generating moving averages of losses.
+    """
+    # Compute the moving average of all individual losses and the total loss.
+    loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
+    losses = tf.get_collection('losses')
+    loss_averages_op = loss_averages.apply(losses + [total_loss])
+
+    # Attach a scalar summary to all individual losses and the total loss; do the
+    # same for the averaged version of the losses.
+    for l in losses + [total_loss]:
+        # Name each loss as '(raw)' and name the moving average version of the loss
+        # as the original loss name.
+        tf.summary.scalar(l.op.name + ' (raw)', l)
+        tf.summary.scalar(l.op.name, loss_averages.average(l))
+
+    return loss_averages_op
 
 
 inception_v4.default_image_size = 299
