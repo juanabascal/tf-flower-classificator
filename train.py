@@ -19,11 +19,14 @@ from __future__ import print_function
 
 import tensorflow as tf
 import model
-import time
 import input
 from datetime import datetime
 
-tf.app.flags.DEFINE_string('ckpt_dir', '/home/uc3m4/PycharmProjects/ft_flowers/data/checkpoint',
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_string('ckpt_dir', './data/checkpoints',
+                           """Directory where to restore a model""")
+tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_integer('max_steps', 1000000,
@@ -35,11 +38,10 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 tf.app.flags.DEFINE_integer('log_frequency', 10,
                             """How often to log results to the console.""")
 
-FLAGS = tf.app.flags.FLAGS
+
 
 
 def train():
-    print(FLAGS.ckpt_dir)
 
     with tf.Graph().as_default() as g:
         global_step = tf.train.get_or_create_global_step()
@@ -50,7 +52,7 @@ def train():
         saver = tf.train.Saver()
 
         with tf.Session() as sess:
-            saver.restore(sess, tf.train.latest_checkpoint("./data/checkpoints"))
+            saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
 
         # Num_classes is None for fine tunning
         bottleneck, end_points = model.inception_v4(images_batch, num_classes=None, is_training=False)
@@ -58,7 +60,7 @@ def train():
 
         #TODO: Add a function to get train_op
         loss, loss_mean = model.loss(logits, labels_batch)
-        optimizer = tf.train.GradientDescentOptimizer(0.5)
+        optimizer = tf.train.GradientDescentOptimizer(1)
         train_op = optimizer.minimize(loss, global_step=global_step)
 
         with tf.Session() as sess:
@@ -74,9 +76,14 @@ def train():
                     print('Time:', datetime.now(), 'Step:', i)
                 sess.run([images_batch, labels_batch])
 
+                if i% 100 is 0:
+                    saver.save(sess, FLAGS.save_dir)
+                    print("***** Saving model in:", FLAGS.save_dir, "*****")
+
             print('Training ends')
 
 def main(argv=None):
+    input.main()
     train()
 
 
