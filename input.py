@@ -112,8 +112,6 @@ def consume_tfrecord(distorted=True):
     dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord"))
     dataset = dataset.map(tfrecord_utils.parse)
 
-    print(dataset)
-
     if distorted is True:
         dataset = dataset.map(distorted_input)
     else:
@@ -123,12 +121,8 @@ def consume_tfrecord(distorted=True):
     dataset = dataset.padded_batch(32, padded_shapes=([299, 299, 3], [5]))
 
     iterator = dataset.make_one_shot_iterator()
-    next_element = iterator.get_next()
 
-    with tf.Session() as sess:
-        print(sess.run(next_element))
-
-    return next_element
+    return iterator
 
 
 def _get_image_and_label_from_entry(dataset_entry):
