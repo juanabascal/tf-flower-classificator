@@ -19,7 +19,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 import model
-import time
+import logging
 import input
 from datetime import datetime
 
@@ -55,30 +55,38 @@ def train():
         bottleneck, end_points = model.inception_v4(images_batch, num_classes=None, is_training=False)
         logits = model.fine_tuning(bottleneck, end_points)
 
-        #TODO: Add a function to get train_op
-        loss  = model.loss(logits, labels_batch)
+        # TODO: Add a function to get train_op
+        loss = model.loss(logits, labels_batch)
         optimizer = tf.train.GradientDescentOptimizer(0.5)
         train_op = optimizer.minimize(loss, global_step=global_step)
-
-        print(loss)
 
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
             sess.run([images_batch, labels_batch])
 
-            print('Training begin')
+            logger = init_logger()
+            logger.info("Training starts...")
             for i in range(0, 2000):
                 sess.run(train_op)
                 if i % 10 is 0:
-                    print('Time:', datetime.now(), 'Loss:', sess.run(loss), 'Step:', i)
+                    print("ahi va")
+                    logger.info('Time: %s Loss: %f Step: %i', datetime.now(), sess.run(loss), i)
                 else:
-                    print('Time:', datetime.now(), 'Step:', i)
+                    logger.info('Time: %s Step: %i', datetime.now(), i)
 
-            print('Training ends')
+            logger.info("Training ends...")
+
 
 def main(argv=None):
     train()
+
+
+def init_logger():
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    return logger
 
 
 if __name__ == "__main__":
