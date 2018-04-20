@@ -109,7 +109,7 @@ def create_tf_example(entry):
 
 
 def consume_tfrecord(distorted=True):
-    dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord"))
+    dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord")).repeat()
     dataset = dataset.map(tfrecord_utils.parse)
 
     if distorted is True:
