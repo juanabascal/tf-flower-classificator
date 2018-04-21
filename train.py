@@ -23,10 +23,14 @@ import logging
 import input
 from datetime import datetime
 
-tf.app.flags.DEFINE_string('ckpt_dir', '/home/uc3m4/PycharmProjects/ft_flowers/data/checkpoint',
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_string('ckpt_dir', './data/checkpoints',
+                           """Directory where to restore a model""")
+tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_integer('max_steps', 1000000,
+tf.app.flags.DEFINE_integer('max_steps', 10000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
@@ -34,8 +38,6 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
 tf.app.flags.DEFINE_integer('log_frequency', 10,
                             """How often to log results to the console.""")
-
-FLAGS = tf.app.flags.FLAGS
 
 
 def train():
@@ -49,7 +51,7 @@ def train():
         saver = tf.train.Saver()
 
         with tf.Session() as sess:
-            saver.restore(sess, tf.train.latest_checkpoint("./data/checkpoints"))
+            saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
 
         # Num_classes is None for fine tunning
         bottleneck, end_points = model.inception_v4(images_batch, num_classes=None, is_training=False)
@@ -57,7 +59,7 @@ def train():
 
         # TODO: Add a function to get train_op
         loss = model.loss(logits, labels_batch)
-        optimizer = tf.train.GradientDescentOptimizer(0.5)
+        optimizer = tf.train.GradientDescentOptimizer(0.25)
         train_op = optimizer.minimize(loss, global_step=global_step)
 
         with tf.Session() as sess:
@@ -67,18 +69,22 @@ def train():
 
             logger = init_logger()
             logger.info("Training starts...")
-            for i in range(0, 2000):
+            for i in range(0, FLAGS.max_steps):
                 sess.run(train_op)
                 if i % 10 is 0:
-                    print("ahi va")
                     logger.info('Time: %s Loss: %f Step: %i', datetime.now(), sess.run(loss), i)
                 else:
                     logger.info('Time: %s Step: %i', datetime.now(), i)
+
+                if i % 100 is 0:
+                    saver.save(sess, FLAGS.save_dir)
+                    logger.info("***** Saving model in: %s *****", FLAGS.save_dir)
 
             logger.info("Training ends...")
 
 
 def main(argv=None):
+    input.main(argv)
     train()
 
 

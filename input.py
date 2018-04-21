@@ -109,7 +109,7 @@ def create_tf_example(entry):
 
 
 def consume_tfrecord(distorted=True):
-    dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord"))
+    dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord")).repeat()
     dataset = dataset.map(tfrecord_utils.parse)
 
     if distorted is True:
@@ -138,7 +138,6 @@ def main(none):
     pre_input.create_datasets(FLAGS.images_path, FLAGS.data_path)
     generate_tfrecord_files(os.path.join(FLAGS.data_path, "training_set.txt"),
                             os.path.join(FLAGS.data_path, "flowers.tfrecord"))
-    consume_tfrecord()
 
 
 if __name__ == "__main__":
