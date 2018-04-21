@@ -18,9 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import model
 import logging
-import input
+from main import input, model
 from datetime import datetime
 
 FLAGS = tf.app.flags.FLAGS
@@ -89,7 +88,6 @@ def train():
 
 
 def main(argv=None):
-    input.main(argv)
     train()
 
 

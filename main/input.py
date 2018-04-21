@@ -18,11 +18,10 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import pre_input
 import os
 from PIL import Image
 import numpy as np
-import tfrecord_utils
+from main import tfrecord_utils, pre_input
 
 FLAGS = tf.app.flags.FLAGS
 
