@@ -362,9 +362,9 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
 def loss(predictions, labels):
     loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=labels)
     cross_entropy_mean = tf.reduce_mean(loss, name='cross_entropy')
-    tf.add_to_collection('losses', cross_entropy_mean)
+    tf.summary.scalar(name='loss', tensor=cross_entropy_mean)
 
-    return tf.add_n(tf.get_collection('losses'), name='total_loss')
+    return cross_entropy_mean
 
 
 def _activation_summary(x):

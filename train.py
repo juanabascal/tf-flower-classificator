@@ -67,14 +67,21 @@ def train():
             sess.run(init)
             sess.run([images_batch, labels_batch])
 
+            # Tensorborad options
+            train_writer = tf.summary.FileWriter("./data/train/log", g)
+
             logger = init_logger()
             logger.info("Training starts...")
             for i in range(0, FLAGS.max_steps):
-                sess.run(train_op)
+                # Merge all summary variables for Tensorborad
+                merge = tf.summary.merge_all()
+
+                _, loss_val, summary = sess.run([train_op, loss, merge])
+
                 if i % 10 is 0:
-                    logger.info('Time: %s Loss: %f Step: %i', datetime.now(), sess.run(loss), i)
-                else:
-                    logger.info('Time: %s Step: %i', datetime.now(), i)
+                    logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)
+
+                train_writer.add_summary(summary, i)
 
                 if i % 100 is 0:
                     saver.save(sess, FLAGS.save_dir)
