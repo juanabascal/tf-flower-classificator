@@ -346,15 +346,18 @@ def inception_v4(inputs, num_classes=1001, is_training=True,
 
 
 def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=0.8):
-    # 1 x 1 x 1536
-    net = slim.dropout(bottleneck_tensor, dropout_keep_prob, scope='Dropout_1b')
-    net = slim.flatten(net, scope='PreLogitsFlatten')
-    end_points['PreLogitsFlatten'] = net
-    # 1536
-    logits = slim.fully_connected(net, num_classes, activation_fn=None,
-                                  scope='Logits')
-    end_points['Logits'] = logits
-    end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
+    with tf.variable_scope('fine_tuning'):
+        # 1 x 1 x 1536
+        net = slim.dropout(bottleneck_tensor, dropout_keep_prob, scope='Dropout_1b')
+        net = slim.flatten(net, scope='PreLogitsFlatten')
+        end_points['PreLogitsFlatten'] = net
+        # 1536
+        logits = slim.fully_connected(net, num_classes, activation_fn=None,
+                                      scope='Logits')
+        end_points['Logits'] = logits
+        end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
+
+        tf.add_to_collection('fine_tuning', logits)
 
     return end_points['Predictions']
 

@@ -30,14 +30,12 @@ tf.app.flags.DEFINE_string('ckpt_dir', './data/checkpoints',
 tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
                            """Directory where to write event logs """
                            """and checkpoint.""")
+tf.app.flags.DEFINE_string('log_dir', './data/train/log',
+                           """Directory where to write event logs.""")
 tf.app.flags.DEFINE_integer('max_steps', 10000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
-tf.app.flags.DEFINE_boolean('log_device_placement', False,
-                            """Whether to log device placement.""")
-tf.app.flags.DEFINE_integer('log_frequency', 10,
-                            """How often to log results to the console.""")
 
 
 def train():
@@ -59,8 +57,8 @@ def train():
 
         # TODO: Add a function to get train_op
         loss = model.loss(logits, labels_batch)
-        optimizer = tf.train.GradientDescentOptimizer(0.25)
-        train_op = optimizer.minimize(loss, global_step=global_step)
+        optimizer = tf.train.GradientDescentOptimizer(2)
+        train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
 
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
@@ -68,7 +66,7 @@ def train():
             sess.run([images_batch, labels_batch])
 
             # Tensorborad options
-            train_writer = tf.summary.FileWriter("./data/train/log", g)
+            train_writer = tf.summary.FileWriter(FLAGS.log_dir, g)
 
             logger = init_logger()
             logger.info("Training starts...")
@@ -80,8 +78,8 @@ def train():
 
                 if i % 10 is 0:
                     logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)
-
-                train_writer.add_summary(summary, i)
+                    # Write the summaries in the log file
+                    train_writer.add_summary(summary, i)
 
                 if i % 100 is 0:
                     saver.save(sess, FLAGS.save_dir)
