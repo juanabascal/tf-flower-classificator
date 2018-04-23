@@ -24,12 +24,12 @@ from datetime import datetime
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('ckpt_dir', './data/checkpoints',
+tf.app.flags.DEFINE_string('ckpt_dir', '../data/checkpoints',
                            """Directory where to restore a model""")
-tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
+tf.app.flags.DEFINE_string('save_dir', '../data/train/flowers',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('log_dir', './data/train/log',
+tf.app.flags.DEFINE_string('log_dir', '../data/train/log',
                            """Directory where to write event logs.""")
 tf.app.flags.DEFINE_integer('max_steps', 10000,
                             """Number of batches to run.""")
@@ -51,18 +51,21 @@ def train():
             saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
 
         # Num_classes is None for fine tunning
-        bottleneck, end_points = model.inception_v4(images_batch, num_classes=None, is_training=False)
+        bottleneck, end_points = model.inception_v3(images_batch, num_classes=None, is_training=False)
         logits = model.fine_tuning(bottleneck, end_points)
 
         # TODO: Add a function to get train_op
         loss = model.loss(logits, labels_batch)
-        optimizer = tf.train.GradientDescentOptimizer(2)
+        optimizer = tf.train.GradientDescentOptimizer(0.01)
         train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
 
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
             sess.run([images_batch, labels_batch])
+
+            tf.summary.image(tensor=images_batch, name="Image")
+            tf.summary.histogram(name='bottlenecks', values=bottleneck)
 
             # Tensorborad options
             train_writer = tf.summary.FileWriter(FLAGS.log_dir, g)
@@ -72,13 +75,14 @@ def train():
             for i in range(0, FLAGS.max_steps):
                 # Merge all summary variables for Tensorborad
                 merge = tf.summary.merge_all()
-
                 _, loss_val, summary = sess.run([train_op, loss, merge])
+
+                # print(sess.run(bottleneck))
 
                 if i % 10 is 0:
                     logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)
                     # Write the summaries in the log file
-                    train_writer.add_summary(summary, i)
+                train_writer.add_summary(summary, i)
 
                 if i % 100 is 0:
                     saver.save(sess, FLAGS.save_dir)

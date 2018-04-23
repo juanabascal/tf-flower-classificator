@@ -27,11 +27,11 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_integer('image_size', 299,
                             """Height and width of the images.""")
-tf.app.flags.DEFINE_string('zip_file_path', "./data/flower_photos.tgz",
+tf.app.flags.DEFINE_string('zip_file_path', "../data/flower_photos.tgz",
                            """Path to the zip file.""")
-tf.app.flags.DEFINE_string('data_path', "./data",
+tf.app.flags.DEFINE_string('data_path', "../data",
                            """Path to the data.""")
-tf.app.flags.DEFINE_string('images_path', "./data/images/flower_photos",
+tf.app.flags.DEFINE_string('images_path', "../data/images/flower_photos",
                            """Path to the photos.""")
 
 
@@ -57,12 +57,12 @@ def distorted_input(image, label):
     distorted_image = tf.image.random_contrast(distorted_image,
                                                lower=0.2, upper=1.8)
 
-    norm_image = tf.image.per_image_standardization(distorted_image)
+    # norm_image = tf.image.per_image_standardization(distorted_image)
 
     # Convert
     label = tf.one_hot(label, 5, dtype=tf.int32)
 
-    return norm_image, label
+    return distorted_image, label
 
 
 def norm_input(image, label):
