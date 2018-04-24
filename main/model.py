@@ -586,6 +586,8 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
         logits = slim.fully_connected(net, num_classes, activation_fn=None,
                                       scope='Logits')
         tf.summary.histogram(name='Weights', values=tf.get_default_graph().get_tensor_by_name('fine_tuning/Logits/weights:0'))
+        tf.summary.histogram(name='Biases', values=tf.get_default_graph().get_tensor_by_name('fine_tuning/Logits/biases:0'))
+
         end_points['Logits'] = logits
         end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
 

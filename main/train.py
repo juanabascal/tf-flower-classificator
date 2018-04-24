@@ -24,14 +24,14 @@ from datetime import datetime
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('ckpt_dir', '../data/checkpoints',
+tf.app.flags.DEFINE_string('ckpt_dir', './data/checkpoints/',
                            """Directory where to restore a model""")
-tf.app.flags.DEFINE_string('save_dir', '../data/train/flowers',
+tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('log_dir', '../data/train/log',
+tf.app.flags.DEFINE_string('log_dir', './data/train/log',
                            """Directory where to write event logs.""")
-tf.app.flags.DEFINE_integer('max_steps', 10000,
+tf.app.flags.DEFINE_integer('max_steps', 2000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
@@ -45,27 +45,26 @@ def train():
         iterator = input.consume_tfrecord()
         images_batch, labels_batch = iterator.get_next()
 
-        saver = tf.train.Saver()
-
-        with tf.Session() as sess:
-            saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
-
         # Num_classes is None for fine tunning
-        bottleneck, end_points = model.inception_v3(images_batch, num_classes=None, is_training=False)
+        with tf.contrib.slim.arg_scope(model.inception_v3_arg_scope()):
+            bottleneck, end_points = model.inception_v3(images_batch, num_classes=None, is_training=False)
+
         logits = model.fine_tuning(bottleneck, end_points)
 
         # TODO: Add a function to get train_op
         loss = model.loss(logits, labels_batch)
-        optimizer = tf.train.GradientDescentOptimizer(0.01)
+        optimizer = tf.train.GradientDescentOptimizer(0.1)
         train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
 
+        saver = tf.train.Saver(tf.global_variables('InceptionV3'))
+        init = tf.global_variables_initializer()
+
         with tf.Session() as sess:
-            init = tf.global_variables_initializer()
             sess.run(init)
+            saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
             sess.run([images_batch, labels_batch])
 
             tf.summary.image(tensor=images_batch, name="Image")
-            tf.summary.histogram(name='bottlenecks', values=bottleneck)
 
             # Tensorborad options
             train_writer = tf.summary.FileWriter(FLAGS.log_dir, g)
@@ -82,13 +81,16 @@ def train():
                 if i % 10 is 0:
                     logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)
                     # Write the summaries in the log file
-                train_writer.add_summary(summary, i)
 
-                if i % 100 is 0:
-                    saver.save(sess, FLAGS.save_dir)
+                    train_writer.add_summary(summary, i)
+
+                if i % 500 is 0 and i is not 0:
+                    saver.save(sess, FLAGS.save_dir, global_step=global_step)
                     logger.info("***** Saving model in: %s *****", FLAGS.save_dir)
 
             logger.info("Training ends...")
+            saver.save(sess, FLAGS.save_dir, global_step=global_step)
+            logger.info("***** Saving model in: %s *****", FLAGS.save_dir)
 
 
 def main(argv=None):
