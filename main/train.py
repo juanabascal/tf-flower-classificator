@@ -51,12 +51,15 @@ def train():
 
         logits = model.fine_tuning(bottleneck, end_points)
 
-        # TODO: Add a function to get train_op
+        lr = tf.train.exponential_decay(0.4, global_step, 250, 0.8, staircase=False, name=None)
+        tf.summary.scalar(name='Learning_Rate', tensor=lr)
+
         loss = model.loss(logits, labels_batch)
-        optimizer = tf.train.GradientDescentOptimizer(0.1)
+        optimizer = tf.train.GradientDescentOptimizer(lr)
         train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
 
         saver = tf.train.Saver(tf.global_variables('InceptionV3'))
+        saver_ft = tf.train.Saver(tf.global_variables('fine_tuning'))
         init = tf.global_variables_initializer()
 
         with tf.Session() as sess:
@@ -79,17 +82,18 @@ def train():
                 # print(sess.run(bottleneck))
 
                 if i % 10 is 0:
-                    logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)
-                    # Write the summaries in the log file
+                    pass
+                logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)
+                # Write the summaries in the log file
 
-                    train_writer.add_summary(summary, i)
+                train_writer.add_summary(summary, i)
 
                 if i % 500 is 0 and i is not 0:
-                    saver.save(sess, FLAGS.save_dir, global_step=global_step)
+                    saver_ft.save(sess, FLAGS.save_dir, global_step=global_step)
                     logger.info("***** Saving model in: %s *****", FLAGS.save_dir)
 
             logger.info("Training ends...")
-            saver.save(sess, FLAGS.save_dir, global_step=global_step)
+            saver_ft.save(sess, FLAGS.save_dir, global_step=global_step)
             logger.info("***** Saving model in: %s *****", FLAGS.save_dir)
 
 
