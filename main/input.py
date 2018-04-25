@@ -111,8 +111,12 @@ def create_tf_example(entry):
     return tf_label_and_data
 
 
-def consume_tfrecord(distorted=True):
-    dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord")).repeat()
+def consume_tfrecord(distorted=True, is_training=True):
+    if is_training:
+        dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord"))
+    else:
+        dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers_eval.tfrecord"))
+
     dataset = dataset.map(tfrecord_utils.parse)
 
     if distorted is True:
@@ -120,7 +124,10 @@ def consume_tfrecord(distorted=True):
     else:
         dataset = dataset.map(norm_input)
 
-    dataset = dataset.shuffle(buffer_size=2560)
+    if is_training:
+        dataset = dataset.repeat()
+        dataset = dataset.shuffle(buffer_size=2560)
+
     dataset = dataset.padded_batch(32, padded_shapes=([299, 299, 3], [5]))
 
     iterator = dataset.make_one_shot_iterator()
@@ -139,8 +146,8 @@ def main(none):
 
     pre_input.unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
     pre_input.create_datasets(FLAGS.images_path, FLAGS.data_path)
-    generate_tfrecord_files(os.path.join(FLAGS.data_path, "training_set.txt"),
-                            os.path.join(FLAGS.data_path, "flowers.tfrecord"))
+    generate_tfrecord_files(os.path.join(FLAGS.data_path, "eval_set.txt"),
+                            os.path.join(FLAGS.data_path, "flowers_eval.tfrecord"))
 
 
 if __name__ == "__main__":
