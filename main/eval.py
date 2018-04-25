@@ -20,6 +20,7 @@ from __future__ import print_function
 import tensorflow as tf
 import logging
 from main import input, model
+import numpy as np
 from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
 
 FLAGS = tf.app.flags.FLAGS
@@ -42,7 +43,7 @@ def train():
     with tf.Graph().as_default() as g:
         global_step = tf.train.get_or_create_global_step()
 
-        iterator = input.consume_tfrecord(is_training=False)
+        iterator = input.consume_tfrecord(is_training=False, batch_size=1)
         images_batch, labels_batch = iterator.get_next()
 
         # Num_classes is None for fine tunning
@@ -51,10 +52,6 @@ def train():
 
         # with tf.variable_scope('fine_tuning'):
         logits = model.fine_tuning(bottleneck, end_points)
-
-        #print(tf.global_variables('fine_tuning'))
-
-        print_tensors_in_checkpoint_file(file_name='/home/uc3m4/PycharmProjects/ft_flowers/data/train/checkpoint', tensor_name='', all_tensors=False, all_tensor_names=True)
 
         saver = tf.train.Saver(tf.global_variables('InceptionV3'))
         saver_ft = tf.train.Saver(tf.global_variables('fine_tuning'))
@@ -65,7 +62,7 @@ def train():
             sess.run(init)
 
             saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
-            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m4/Documentos/Trained/ft_flowers/lr_0.4'))
+            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m4/PycharmProjects/ft_flowers/data/train/'))
 
             images, labels = sess.run([images_batch, labels_batch])
 
@@ -77,12 +74,19 @@ def train():
             logger = init_logger()
             logger.info("Eval starts...")
 
-            prediction = sess.run(tf.nn.top_k(logits, k=1))
-            logger.info('Label: %s Prediction: %f', labels, prediction)
+            correct = 0
+
+            for i in range(1, 2500):
+                predicted_class = sess.run(tf.nn.top_k(logits, k=1)[1][0])
+                label_true = sess.run(tf.nn.top_k(labels, k=1)[1][0])
+
+                print(labels, label_true)
+
+                if predicted_class == label_true:
+                    correct += 1
+                    logger.info('Success rate: %.2f of %i examples', correct/i*100, i)
 
             logger.info("Eval ends...")
-            saver.save(sess, FLAGS.save_dir, global_step=global_step)
-            logger.info("***** Saving model in: %s *****", FLAGS.save_dir)
 
 
 def main(argv=None):

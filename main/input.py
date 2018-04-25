@@ -111,7 +111,7 @@ def create_tf_example(entry):
     return tf_label_and_data
 
 
-def consume_tfrecord(distorted=True, is_training=True):
+def consume_tfrecord(distorted=True, is_training=True, batch_size=32):
     if is_training:
         dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord"))
     else:
@@ -128,7 +128,7 @@ def consume_tfrecord(distorted=True, is_training=True):
         dataset = dataset.repeat()
         dataset = dataset.shuffle(buffer_size=2560)
 
-    dataset = dataset.padded_batch(32, padded_shapes=([299, 299, 3], [5]))
+    dataset = dataset.padded_batch(batch_size, padded_shapes=([299, 299, 3], [5]))
 
     iterator = dataset.make_one_shot_iterator()
 
