@@ -20,8 +20,6 @@ from __future__ import print_function
 import tensorflow as tf
 import logging
 from main import input, model
-import numpy as np
-from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -62,29 +60,28 @@ def train():
             sess.run(init)
 
             saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
-            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m4/PycharmProjects/ft_flowers/data/train/'))
-
-            images, labels = sess.run([images_batch, labels_batch])
+            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m4/Documentos/Trained/ft_flowers/lr_ed_0.4/'))
 
             tf.summary.image(tensor=images_batch, name="Image")
-
-            # Tensorborad options
-            train_writer = tf.summary.FileWriter(FLAGS.log_dir, g)
 
             logger = init_logger()
             logger.info("Eval starts...")
 
             correct = 0
 
-            for i in range(1, 2500):
+            for i in range(1, 1170):
+                images, labels = sess.run([images_batch, labels_batch])
+
                 predicted_class = sess.run(tf.nn.top_k(logits, k=1)[1][0])
                 label_true = sess.run(tf.nn.top_k(labels, k=1)[1][0])
 
-                print(labels, label_true)
+                print(predicted_class)
+                print(label_true)
 
                 if predicted_class == label_true:
                     correct += 1
-                    logger.info('Success rate: %.2f of %i examples', correct/i*100, i)
+
+                logger.info('Success rate: %.2f of %i examples', correct/i*100, i)
 
             logger.info("Eval ends...")
 
