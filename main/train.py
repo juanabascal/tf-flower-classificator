@@ -31,7 +31,7 @@ tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('log_dir', './data/train/log',
                            """Directory where to write event logs.""")
-tf.app.flags.DEFINE_integer('max_steps', 2000,
+tf.app.flags.DEFINE_integer('max_steps', 2500,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
@@ -51,7 +51,7 @@ def train():
 
         logits = model.fine_tuning(bottleneck, end_points)
 
-        lr = tf.train.exponential_decay(0.4, global_step, 250, 0.8, staircase=False, name=None)
+        lr = tf.train.exponential_decay(0.4, global_step, 150, 0.8, staircase=False, name=None)
         tf.summary.scalar(name='Learning_Rate', tensor=lr)
 
         loss = model.loss(logits, labels_batch)
@@ -65,7 +65,7 @@ def train():
         with tf.Session() as sess:
             sess.run(init)
             saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
-            sess.run([images_batch, labels_batch])
+
 
             tf.summary.image(tensor=images_batch, name="Image")
 
@@ -75,6 +75,7 @@ def train():
             logger = init_logger()
             logger.info("Training starts...")
             for i in range(0, FLAGS.max_steps):
+                sess.run([images_batch, labels_batch])
                 # Merge all summary variables for Tensorborad
                 merge = tf.summary.merge_all()
                 _, loss_val, summary = sess.run([train_op, loss, merge])
@@ -82,11 +83,9 @@ def train():
                 # print(sess.run(bottleneck))
 
                 if i % 10 is 0:
-                    pass
-                logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)
-                # Write the summaries in the log file
-
-                train_writer.add_summary(summary, i)
+                    logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)
+                    # Write the summaries in the log file
+                    train_writer.add_summary(summary, i)
 
                 if i % 500 is 0 and i is not 0:
                     saver_ft.save(sess, FLAGS.save_dir, global_step=global_step)
