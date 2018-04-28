@@ -51,7 +51,7 @@ def train():
 
         logits = model.fine_tuning(bottleneck, end_points)
 
-        lr = tf.train.exponential_decay(0.4, global_step, 150, 0.8, staircase=False, name=None)
+        lr = tf.train.exponential_decay(0.4, global_step, 250, 0.8, staircase=False, name=None)
         tf.summary.scalar(name='Learning_Rate', tensor=lr)
 
         loss = model.loss(logits, labels_batch)
@@ -79,8 +79,6 @@ def train():
                 # Merge all summary variables for Tensorborad
                 merge = tf.summary.merge_all()
                 _, loss_val, summary = sess.run([train_op, loss, merge])
-
-                # print(sess.run(bottleneck))
 
                 if i % 10 is 0:
                     logger.info('Time: %s Loss: %f Step: %i', datetime.now(), loss_val, i)

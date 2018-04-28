@@ -590,15 +590,15 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
         tf.summary.histogram(name='Biases', values=tf.get_default_graph().get_tensor_by_name('fine_tuning/Logits/biases:0'))
 
         end_points['Logits'] = logits
-        end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
+       # end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
 
         tf.add_to_collection('fine_tuning', logits)
 
-    return end_points['Predictions']
+    return end_points['Logits']
 
 
 def loss(predictions, labels):
-    loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=predictions, labels=labels)
+    loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=predictions, labels=labels)
     cross_entropy_mean = tf.reduce_mean(loss, name='cross_entropy')
     tf.summary.scalar(name='loss', tensor=cross_entropy_mean)
 

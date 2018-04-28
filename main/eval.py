@@ -60,7 +60,7 @@ def train():
             sess.run(init)
 
             saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
-            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m4/Documentos/Trained/ft_flowers/lr_ed_0.4/'))
+            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m3/Documentos/Trained/ft_flowers/lr_ed_0.2/'))
 
             tf.summary.image(tensor=images_batch, name="Image")
 
@@ -74,9 +74,6 @@ def train():
 
                 predicted_class = sess.run(tf.nn.top_k(logits, k=1)[1][0])
                 label_true = sess.run(tf.nn.top_k(labels, k=1)[1][0])
-
-                print(predicted_class)
-                print(label_true)
 
                 if predicted_class == label_true:
                     correct += 1

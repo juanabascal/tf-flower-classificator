@@ -59,9 +59,6 @@ def distorted_input(image, label):
 
     norm_image = tf.image.per_image_standardization(distorted_image)
 
-    # Convert
-    label = tf.one_hot(label, 5, dtype=tf.int32)
-
     return norm_image, label
 
 
@@ -69,8 +66,6 @@ def norm_input(image, label):
     cropped_image = tf.image.resize_image_with_crop_or_pad(image, 299, 299)
 
     norm_image = tf.image.per_image_standardization(cropped_image)
-
-    label = tf.one_hot(label, 5, dtype=tf.int32)
 
     return norm_image, label
 
@@ -89,12 +84,12 @@ def generate_tfrecord_files(image_set, save_file):
             tf_example = create_tf_example(entry)
             writer.write(tf_example.SerializeToString())
 
-        writer.close()
+
 
 
 def create_tf_example(entry):
     image_path, label = _get_image_and_label_from_entry(entry)
-
+    image_path = image_path[1:]
     image = Image.open(image_path)
     image_np = np.array(image)
     image_raw = image_np.tostring()
@@ -128,7 +123,7 @@ def consume_tfrecord(distorted=True, is_training=True, batch_size=32):
         dataset = dataset.repeat()
         dataset = dataset.shuffle(buffer_size=2560)
 
-    dataset = dataset.padded_batch(batch_size, padded_shapes=([299, 299, 3], [5]))
+    dataset = dataset.padded_batch(batch_size, padded_shapes=([299, 299, 3], []))
 
     iterator = dataset.make_one_shot_iterator()
 
@@ -146,8 +141,9 @@ def main(none):
 
     pre_input.unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
     pre_input.create_datasets(FLAGS.images_path, FLAGS.data_path)
-    generate_tfrecord_files(os.path.join(FLAGS.data_path, "eval_set.txt"),
-                            os.path.join(FLAGS.data_path, "flowers_eval.tfrecord"))
+    generate_tfrecord_files(os.path.join(FLAGS.data_path, "training_set.txt"),
+                            os.path.join(FLAGS.data_path, "flowers.tfrecord"))
+    print('exito')
 
 
 if __name__ == "__main__":
