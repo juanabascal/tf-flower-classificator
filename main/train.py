@@ -51,7 +51,7 @@ def train():
 
         logits = model.fine_tuning(bottleneck, end_points)
 
-        lr = tf.train.exponential_decay(0.4, global_step, 250, 0.8, staircase=False, name=None)
+        lr = tf.train.exponential_decay(0.2, global_step, 250, 0.8, staircase=False, name=None)
         tf.summary.scalar(name='Learning_Rate', tensor=lr)
 
         loss = model.loss(logits, labels_batch)

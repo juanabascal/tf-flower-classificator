@@ -70,12 +70,12 @@ def train():
             correct = 0
 
             for i in range(1, 1170):
-                images, labels = sess.run([images_batch, labels_batch])
+                images, labels = sess.run([images_batch, labels_batch])git s
 
                 predicted_class = sess.run(tf.nn.top_k(logits, k=1)[1][0])
-                label_true = sess.run(tf.nn.top_k(labels, k=1)[1][0])
+                #label_true = sess.run(tf.nn.top_k(labels, k=1)[1][0])
 
-                if predicted_class == label_true:
+                if predicted_class == labels:
                     correct += 1
 
                 logger.info('Success rate: %.2f of %i examples', correct/i*100, i)
