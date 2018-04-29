@@ -60,7 +60,7 @@ def train():
             sess.run(init)
 
             saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
-            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m3/Documentos/Trained/ft_flowers/lr_ed_0.2/'))
+            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m3/Documentos/Trained/ft_flowers/adam_2/'))
 
             tf.summary.image(tensor=images_batch, name="Image")
 
@@ -70,7 +70,7 @@ def train():
             correct = 0
 
             for i in range(1, 1170):
-                images, labels = sess.run([images_batch, labels_batch])git s
+                images, labels = sess.run([images_batch, labels_batch])
 
                 predicted_class = sess.run(tf.nn.top_k(logits, k=1)[1][0])
                 #label_true = sess.run(tf.nn.top_k(labels, k=1)[1][0])

@@ -31,7 +31,7 @@ tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('log_dir', './data/train/log',
                            """Directory where to write event logs.""")
-tf.app.flags.DEFINE_integer('max_steps', 2500,
+tf.app.flags.DEFINE_integer('max_steps', 501,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
@@ -55,8 +55,9 @@ def train():
         tf.summary.scalar(name='Learning_Rate', tensor=lr)
 
         loss = model.loss(logits, labels_batch)
-        optimizer = tf.train.GradientDescentOptimizer(lr)
-        train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
+        #optimizer = tf.train.GradientDescentOptimizer(lr)
+        #train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
+        train_op = tf.train.AdamOptimizer(0.005).minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
 
         saver = tf.train.Saver(tf.global_variables('InceptionV3'))
         saver_ft = tf.train.Saver(tf.global_variables('fine_tuning'))
