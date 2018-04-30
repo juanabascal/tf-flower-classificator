@@ -31,43 +31,49 @@ tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_string('log_dir', './data/train/log',
                            """Directory where to write event logs.""")
-tf.app.flags.DEFINE_integer('max_steps', 501,
-                            """Number of batches to run.""")
+tf.app.flags.DEFINE_integer('max_steps', 500,
+                            """Number of epochs to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
 
 
 def train():
-
     with tf.Graph().as_default() as g:
         global_step = tf.train.get_or_create_global_step()
 
+        # Get the iterator from the TFRecord files.
         iterator = input.consume_tfrecord()
         images_batch, labels_batch = iterator.get_next()
 
-        # Num_classes is None for fine tunning
+        # Num_classes is None for fine tuning. You need to have the proper scope.
+        # From the original model we only need the bottlenecks.
         with tf.contrib.slim.arg_scope(model.inception_v3_arg_scope()):
             bottleneck, end_points = model.inception_v3(images_batch, num_classes=None, is_training=False)
 
+        # We pass the bottleneck generated in the step before to the new classifier.
         logits = model.fine_tuning(bottleneck, end_points)
 
-        lr = tf.train.exponential_decay(0.2, global_step, 250, 0.8, staircase=False, name=None)
-        tf.summary.scalar(name='Learning_Rate', tensor=lr)
-
+        # We compute the loss between the predictions and the labels
         loss = model.loss(logits, labels_batch)
-        #optimizer = tf.train.GradientDescentOptimizer(lr)
-        #train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
-        train_op = tf.train.AdamOptimizer(0.005).minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
 
+        # We use ADAM as a optimizer. You could use whichever you want, like Gradient Descent.
+        # It's important to indicate that we only want to retrain the 'fine_tuning' variables.
+        optimizer = tf.train.AdamOptimizer(0.005)
+        train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
+
+        # We create two savers. The first one for the InceptionV3 variables and the second one for the variables of
+        # the new classifier.
         saver = tf.train.Saver(tf.global_variables('InceptionV3'))
         saver_ft = tf.train.Saver(tf.global_variables('fine_tuning'))
         init = tf.global_variables_initializer()
 
         with tf.Session() as sess:
             sess.run(init)
+
+            # Restore the checkpoints of the InceptionV3 model.
             saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
 
-
+            # This will let you see the images in tensorboard
             tf.summary.image(tensor=images_batch, name="Image")
 
             # Tensorborad options
@@ -75,10 +81,16 @@ def train():
 
             logger = init_logger()
             logger.info("Training starts...")
+
+            # Training loop. Set the max number of steps.
             for i in range(0, FLAGS.max_steps):
+                # We compute the image and label batch
                 sess.run([images_batch, labels_batch])
+
                 # Merge all summary variables for Tensorborad
                 merge = tf.summary.merge_all()
+
+                # We do the training and compute the loss and the summaries
                 _, loss_val, summary = sess.run([train_op, loss, merge])
 
                 if i % 10 is 0:
@@ -86,6 +98,7 @@ def train():
                     # Write the summaries in the log file
                     train_writer.add_summary(summary, i)
 
+                # We save the progress every 500 steps
                 if i % 500 is 0 and i is not 0:
                     saver_ft.save(sess, FLAGS.save_dir, global_step=global_step)
                     logger.info("***** Saving model in: %s *****", FLAGS.save_dir)
