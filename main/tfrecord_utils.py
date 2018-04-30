@@ -1,4 +1,4 @@
-# Copyright 2018 Juan Abascal. All Rights Reserved.
+# Copyright 2018 Juan Abascal & Daniel Gonzalez. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,42 +18,17 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import os
-import sys
-
-path_tfrecords_train = os.path.join("/home/uc3m4/PycharmProjects/ft_flowers/data", "train.tfrecords")
-path_tfrecords_test = os.path.join("/home/uc3m4/PycharmProjects/ft_flowers/data", "test.tfrecords")
-
-
-def print_progress(count, total):
-    # Percentage completion.
-    pct_complete = float(count) / total
-
-    # Status-message.
-    # Note the \r which means the line should overwrite itself.
-    msg = "\rProgress: {0:.1%}".format(pct_complete)
-
-    # Print it.
-    sys.stdout.write(msg)
-    sys.stdout.flush()
-
-
-def int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
-
-# _bytes is used for string/char values
-def bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
 def parse(serialized):
-    # Define a dict with the data-names and types we expect to
-    # find in the TFRecords file.
-    # It is a bit awkward that this needs to be specified again,
-    # because it could have been written in the header of the
-    # TFRecords file instead.
+    """ Convert the images and labels from records feature to Tensors.
 
+        Args:
+            serialized: A dataset comprising records from one TFRecord file.
+
+    """
+
+    # Define a dict with the data-names and types we expect to find in the TFRecords file.
     feature = {
         'image': tf.FixedLenFeature([], tf.string),
         'image/height': tf.FixedLenFeature([], tf.int64),
@@ -65,7 +40,7 @@ def parse(serialized):
     parsed_example = tf.parse_single_example(serialized=serialized,
                                              features=feature)
 
-    # Get the image as raw bytes.
+    # Get the image as raw bytes, and  the height, width and label as int.
     image_raw = parsed_example['image']
     height = tf.cast(parsed_example['image/height'], tf.int32)
     width = tf.cast(parsed_example['image/width'], tf.int32)

@@ -32,12 +32,15 @@ The dataset used for training consists in images of 5 different classes, placed 
 │   ├── sunflowers
 │   └── tulips
 ```
-### Creating training and evaluation sets
-There are a total of XXXX images, which are splitted into two datasets. Training dataset and eval dataset. You can adjust the number of images for each dataset by changing the `number_of_images_for_training` variable which is a `tf.app.flags`. This number **must be lower** than the minimun number of photos in a class, by default this number is 500. We recommend to use at least 25% of the images for evaluation purposes.
 
-From the folder structure we create two different txt files, called `training_dataset.txt` and `eval_dataset.txt`. This files have in each line the path to each image in the dataset and its label, which is a number between 0 and 4. To generate this files you just have to run the `pre_input.py` file.
+The `pre_input.py` file helps you to create the TFRecord files that are used to feed the model in both training and eval mode. You have to run the script separately before executing the training or evaluation programme. The only files you need for doing the training and evaluation are the `training_set.tfrecord`, `eval_set.tfrecord` and `labels.txt`, so you could delete the images folder if you will.
+
+### Creating training and evaluation sets
+There are a total of 3.670 images, which are splitted into two datasets. Training dataset and eval dataset. You can adjust the number of images for each dataset by changing the `number_of_images_for_training` variable which is a global variable. This number **must be lower** than the minimun number of photos in a class, by default this number is 600. We recommend to use at least 25% of the images for evaluation purposes.
+
+From the folder structure we create two different txt files, called `training_set.txt` and `eval_set.txt`. This files have in each line the path to each image in the dataset and its label, which is a number between 0 and 4. To generate this files you just have to run the `pre_input.py` file.
 
 ### Generating TFRecord files
-We need to have a TFRecord file as input of our input pipeline. We generate this file from the training and eval dataset, resulting in two new files training_dataset.tfrecord and eval_dataset.tfrecord. You can learn more about the TFRecord format in (insert link of article).
+We need to have a TFRecord file as input of our input pipeline. We generate this file from the training and eval dataset, resulting in two new files `training_set.tfrecord` and `eval_set.tfrecord`. You can learn more about the TFRecord format in [this Tensorflow's programmer's guide](https://www.tensorflow.org/programmers_guide/datasets#consuming_tfrecord_data).
 
-In the TFRecord files we save the raw image’s pixels, its height and width and the label of the image. The sum of training_dataset.tfrecord file and the eval_dataset.tfrecord might be larger than the size of all the images, because we are saving more information and the images are not compressed as jpeg.
+In the TFRecord files we save the raw image’s pixels, its height and width and the label of the image. The sum of the size of `training_set.tfrecord` file and the `eval_set.tfrecord` might be larger than the size of all the images, because we are saving more information and also the images are not compressed as jpeg.

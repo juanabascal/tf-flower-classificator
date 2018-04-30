@@ -35,6 +35,8 @@ tf.app.flags.DEFINE_integer('max_steps', 500,
                             """Number of epochs to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
+tf.app.flags.DEFINE_integer('learning_rate', 0.005,
+                            """Learning rate for the optimizer""")
 
 
 def train():
