@@ -43,6 +43,9 @@ tf.app.flags.DEFINE_string('zip_file_path', "./data/flower_photos.tgz",
 tf.app.flags.DEFINE_string('images_path', "./data/images/flower_photos",
                            """Path to the photos.""")
 
+# How many images you want in the training dataset. The rest will be used in the evaluation dataset.
+number_of_images_for_training = 600
+
 
 def unzip_input(compressed_file, dest_path):
     """ Unzip the zip file with all the images from the dataset.
@@ -124,7 +127,7 @@ def _get_class_names(data_path):
     return class_names
 
 
-def _create_training_set(data_paths, training_set_path, number_of_items_per_class=500):
+def _create_training_set(data_paths, training_set_path):
     """ Create a text file storing the path to the images and there class label in one row.
 
         Args:
@@ -141,7 +144,7 @@ def _create_training_set(data_paths, training_set_path, number_of_items_per_clas
     training_set_file = open(training_set_path, 'w')
 
     for path in data_paths:
-        for photo in os.listdir(path)[0:number_of_items_per_class]:
+        for photo in os.listdir(path)[0:number_of_images_for_training]:
             photo_path = os.path.join(path, photo)
             training_entry = "%s %s \n" % (photo_path, data_paths.index(path))
             training_set_file.write(training_entry)
@@ -149,7 +152,7 @@ def _create_training_set(data_paths, training_set_path, number_of_items_per_clas
     training_set_file.close()
 
 
-def _create_eval_set(data_paths, eval_set_path, number_of_items_per_class=500):
+def _create_eval_set(data_paths, eval_set_path):
     """ Create a text file storing the path to the images and there class label in one row.
 
         Args:
@@ -166,7 +169,7 @@ def _create_eval_set(data_paths, eval_set_path, number_of_items_per_class=500):
     eval_set_file = open(eval_set_path, 'w')
 
     for path in data_paths:
-        for photo in os.listdir(path)[number_of_items_per_class:]:
+        for photo in os.listdir(path)[number_of_images_for_training:]:
             photo_path = os.path.join(path, photo)
             eval_entry = "%s %s \n" % (photo_path, data_paths.index(path))
             eval_set_file.write(eval_entry)
@@ -259,9 +262,9 @@ def main(none):
     unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
     create_datasets(FLAGS.images_path, FLAGS.data_path)
     generate_tfrecord_files(os.path.join(FLAGS.data_path, "training_set.txt"),
-                            os.path.join(FLAGS.data_path, "flowers_train.tfrecord"))
+                            os.path.join(FLAGS.data_path, "training_set.tfrecord"))
     generate_tfrecord_files(os.path.join(FLAGS.data_path, "eval_set.txt"),
-                            os.path.join(FLAGS.data_path, "flowers_eval.tfrecord"))
+                            os.path.join(FLAGS.data_path, "eval_set.tfrecord"))
 
 
 if __name__ == "__main__":
