@@ -13,18 +13,35 @@
 # limitations under the License.
 # ==============================================================================
 
+"""
+Use this script to generate the training and evaluation dataset, which are used to create
+the training and evaluation TFRecord files that store all the images, label and dimensions
+of the input data.
+
+This pre input file is prepared to read a flower dataset. You can find the dataset in:
+http://download.tensorflow.org/example_images/flower_photos.tgz
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import tarfile
 import os
+import tensorflow as tf
+import numpy as np
+from main import tfrecord_utils
+from PIL import Image
 
 
-"""
-This input file is prepared to read a flower dataset. You can find the dataset in:
-http://download.tensorflow.org/example_images/flower_photos.tgz
-"""
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_string('data_path', "./data",
+                           """Path to the data.""")
+tf.app.flags.DEFINE_string('zip_file_path', "./data/flower_photos.tgz",
+                           """Path to the zip file.""")
+tf.app.flags.DEFINE_string('images_path', "./data/images/flower_photos",
+                           """Path to the photos.""")
 
 
 def unzip_input(compressed_file, dest_path):
@@ -169,3 +186,83 @@ def _create_label_file(class_names, labels_path):
         labels_file.write("%s %s \n" % (class_name, class_names.index(class_name)))
 
     labels_file.close()
+
+
+def generate_tfrecord_files(dataset, save_file):
+    """ Creates the tfrecord files from a dataset file.
+
+        Args:
+            dataset: txt file with lines having 'path_to_the_image label'.
+            save_file: file where the TFRecord is going to be saved.
+    """
+    if os.path.exists(save_file):
+        print("TFRecord file already exists in", save_file)
+        return
+
+    print("Creating TFRecord file...")
+
+    # Open a TFRecordWriter for the output-file.
+    with tf.python_io.TFRecordWriter(save_file) as writer:
+
+        for entry in open(dataset):
+            tf_example = _create_tf_example(entry)
+            writer.write(tf_example.SerializeToString())
+
+    print("TFRecord file created at", save_file)
+
+
+def _create_tf_example(entry):
+    """ Creates a tf.train.Example to be saved in the TFRecord file.
+
+        Args:
+            entry: string containing the path to a image and its label.
+        Return:
+            tf_example: tf.train.Example containing the info stored in feature
+    """
+    image_path, label = _get_image_and_label_from_entry(entry)
+
+    # Convert the jpeg image to raw image.
+    image = Image.open(image_path)
+    image_np = np.array(image)
+    image_raw = image_np.tostring()
+
+    # Data which is going to be stored in the TFRecord file
+    feature = {
+        'image': tfrecord_utils.bytes_feature(image_raw),
+        'image/height': tfrecord_utils.int64_feature(image_np.shape[0]),
+        'image/width': tfrecord_utils.int64_feature(image_np.shape[1]),
+        'label': tfrecord_utils.int64_feature(label),
+    }
+
+    tf_example = tf.train.Example(features=tf.train.Features(feature=feature))
+
+    return tf_example
+
+
+def _get_image_and_label_from_entry(entry):
+    """ Get the image's path and its label from a dataset entry.
+
+        Args:
+            entry: string containing the path to a image and its label.
+        Return:
+            file_path: string with the path where a image is stored.
+            label: int representing the class of the image
+    """
+    file_path, label = entry.split(" ")[0:2]
+
+    return file_path, int(label)
+
+
+def main(none):
+    """ Run this function to create the datasets and the numpy array files. """
+
+    unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
+    create_datasets(FLAGS.images_path, FLAGS.data_path)
+    generate_tfrecord_files(os.path.join(FLAGS.data_path, "training_set.txt"),
+                            os.path.join(FLAGS.data_path, "flowers_train.tfrecord"))
+    generate_tfrecord_files(os.path.join(FLAGS.data_path, "eval_set.txt"),
+                            os.path.join(FLAGS.data_path, "flowers_eval.tfrecord"))
+
+
+if __name__ == "__main__":
+    tf.app.run()

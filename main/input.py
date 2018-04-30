@@ -19,20 +19,17 @@ from __future__ import print_function
 
 import tensorflow as tf
 import os
-from PIL import Image
-import numpy as np
-from main import tfrecord_utils, pre_input
+from main import tfrecord_utils
 
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_integer('image_size', 299,
                             """Height and width of the images.""")
-tf.app.flags.DEFINE_string('zip_file_path', "./data/flower_photos.tgz",
-                           """Path to the zip file.""")
 tf.app.flags.DEFINE_string('data_path', "./data",
                            """Path to the data.""")
-tf.app.flags.DEFINE_string('images_path', "./data/images/flower_photos",
-                           """Path to the photos.""")
+
+tfrecord_file_training = os.path.join(FLAGS.data_path, "flowers_train.tfrecord")
+tfrecord_file_eval = os.path.join(FLAGS.data_path, "flowers_eval.tfrecord")
 
 
 """
@@ -42,9 +39,19 @@ http://download.tensorflow.org/example_images/flower_photos.tgz
 
 
 def distorted_input(image, label):
+    """ Apply random distortions to the image in order to do data augmentation.
+
+        Args:
+            image: the image to apply the distortions.
+            label: the label of the image.
+        Returns:
+            norm_image: the distorted normalized image.
+            label: the label is required because the dataset.map function needs both
+                elements.
+    """
     # Random crop image
-    cropped_image = tf.image.resize_image_with_crop_or_pad(image, 319, 319)
-    cropped_image = tf.random_crop(cropped_image, [299, 299, 3])
+    cropped_image = tf.image.resize_image_with_crop_or_pad(image, 324, 324)
+    cropped_image = tf.random_crop(cropped_image, [FLAGS.image_size, FLAGS.image_size, 3])
 
     # Randomly flip the image horizontally.
     distorted_image = tf.image.random_flip_left_right(cropped_image)
@@ -63,88 +70,49 @@ def distorted_input(image, label):
 
 
 def norm_input(image, label):
-    cropped_image = tf.image.resize_image_with_crop_or_pad(image, 299, 299)
+    """ Apply normalization to the image.
+
+            Args:
+                image: the image to apply the normalization.
+                label: the label of the image.
+            Returns:
+                norm_image: the normalized image.
+                label: the label is required because the dataset.map function needs both
+                    elements.
+        """
+    cropped_image = tf.image.resize_image_with_crop_or_pad(image, FLAGS.image_size, FLAGS.image_size)
 
     norm_image = tf.image.per_image_standardization(cropped_image)
 
     return norm_image, label
 
 
-def generate_tfrecord_files(image_set, save_file):
-    if os.path.exists(save_file):
-        print("TFRecord file already exists.")
-        return
+def consume_tfrecord(is_training=True, batch_size=32):
+    """ Creates a one shot iterator from the TFRecord files.
 
-    print("Creating TFRecord file...")
-
-    # Open a TFRecordWriter for the output-file.
-    with tf.python_io.TFRecordWriter(save_file) as writer:
-
-        for entry in open(image_set):
-            tf_example = create_tf_example(entry)
-            writer.write(tf_example.SerializeToString())
-
-
-
-
-def create_tf_example(entry):
-    image_path, label = _get_image_and_label_from_entry(entry)
-    image_path = image_path[1:]
-    image = Image.open(image_path)
-    image_np = np.array(image)
-    image_raw = image_np.tostring()
-
-    feature = {
-        'image': tfrecord_utils.bytes_feature(image_raw),
-        'image/height': tfrecord_utils.int64_feature(image_np.shape[0]),
-        'image/width': tfrecord_utils.int64_feature(image_np.shape[1]),
-        'label': tfrecord_utils.int64_feature(label),
-    }
-
-    tf_label_and_data = tf.train.Example(features=tf.train.Features(feature=feature))
-
-    return tf_label_and_data
-
-
-def consume_tfrecord(distorted=True, is_training=True, batch_size=32):
+        Args:
+            is_training: if True apply distotion to the images and take the training
+                dataset instead of the eval dataset.
+            batch_size: size of the batch.
+        Return:
+             iterator: one shot iterator.
+    """
     if is_training:
-        dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers.tfrecord"))
+        dataset = tf.data.TFRecordDataset(tfrecord_file_training)
     else:
-        dataset = tf.data.TFRecordDataset(os.path.join(FLAGS.data_path, "flowers_eval.tfrecord"))
+        dataset = tf.data.TFRecordDataset(tfrecord_file_eval)
 
     dataset = dataset.map(tfrecord_utils.parse)
 
-    if distorted is True:
+    if is_training:
         dataset = dataset.map(distorted_input)
+        dataset = dataset.repeat()
+        dataset = dataset.shuffle(buffer_size=2560)
     else:
         dataset = dataset.map(norm_input)
 
-    if is_training:
-        dataset = dataset.repeat()
-        dataset = dataset.shuffle(buffer_size=2560)
-
-    dataset = dataset.padded_batch(batch_size, padded_shapes=([299, 299, 3], []))
+    dataset = dataset.padded_batch(batch_size, padded_shapes=([FLAGS.image_size, FLAGS.image_size, 3], []))
 
     iterator = dataset.make_one_shot_iterator()
 
     return iterator
-
-
-def _get_image_and_label_from_entry(dataset_entry):
-    file_path, label = dataset_entry.split(" ")[0:2]
-
-    return file_path, int(label)
-
-
-def main(none):
-    """ Run this function to create the datasets and the numpy array files. """
-
-    pre_input.unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
-    pre_input.create_datasets(FLAGS.images_path, FLAGS.data_path)
-    generate_tfrecord_files(os.path.join(FLAGS.data_path, "eval_set.txt"),
-                            os.path.join(FLAGS.data_path, "flowers_eval.tfrecord"))
-    print('exito')
-
-
-if __name__ == "__main__":
-    tf.app.run()
