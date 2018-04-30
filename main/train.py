@@ -35,6 +35,8 @@ tf.app.flags.DEFINE_integer('max_steps', 501,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
+tf.app.flags.DEFINE_integer('learning_rate', 0.005,
+                            """Learning rate for the optimizer""")
 
 
 def train():
@@ -57,7 +59,7 @@ def train():
         loss = model.loss(logits, labels_batch)
         #optimizer = tf.train.GradientDescentOptimizer(lr)
         #train_op = optimizer.minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
-        train_op = tf.train.AdamOptimizer(0.005).minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
+        train_op = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(loss, global_step=global_step, var_list=tf.global_variables('fine_tuning'))
 
         saver = tf.train.Saver(tf.global_variables('InceptionV3'))
         saver_ft = tf.train.Saver(tf.global_variables('fine_tuning'))
