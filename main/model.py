@@ -1,4 +1,4 @@
-# Copyright 2016 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2016 Juan Abascal & Daniel Gonzalez. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -577,12 +577,22 @@ def _reduced_kernel_size_for_small_input(input_tensor, kernel_size):
 
 
 def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=0.8):
+    """Creates the classificator layer
+
+        Args:
+          bottleneck_tensor: Output from the last layer of the pretrained net.
+          end_points: A dictionary from components of the network to the corresponding activation.
+          num_classes: Number of classes of our classificator.
+          dropout_keep_prob: Hyperparameter of the FC layer.
+        Returns:
+          Logits: A Tensor with the logits (pre-softmax activations)
+        """
     with tf.variable_scope('fine_tuning'):
-        # 1 x 1 x 1536
+        # The input is a 1 x 1 x 1536 tensor
         net = slim.dropout(bottleneck_tensor, dropout_keep_prob, scope='Dropout_1b')
         net = slim.flatten(net, scope='PreLogitsFlatten')
         end_points['PreLogitsFlatten'] = net
-        # 1536
+        # Creates a fully connected layer
         logits = slim.fully_connected(net, num_classes, activation_fn=None,
                                       weights_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                       scope='Logits')
@@ -590,7 +600,6 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
         tf.summary.histogram(name='Biases', values=tf.get_default_graph().get_tensor_by_name('fine_tuning/Logits/biases:0'))
 
         end_points['Logits'] = logits
-       # end_points['Predictions'] = tf.nn.softmax(logits, name='Predictions')
 
         tf.add_to_collection('fine_tuning', logits)
 
@@ -598,7 +607,14 @@ def fine_tuning(bottleneck_tensor, end_points, num_classes=5, dropout_keep_prob=
 
 
 def loss(predictions, labels):
-    # labels = tf.cast(labels, tf.int64)
+    """Calculate the loss of the model
+
+    Args:
+      predictions: Class predicted by the model.
+      labels: Correct class of the image.
+    Returns:
+      cross_entropy:mean: Average cross entropy for the batch.
+    """
     loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=predictions, labels=labels)
     cross_entropy_mean = tf.reduce_mean(loss, name='cross_entropy')
     tf.summary.scalar(name='loss', tensor=cross_entropy_mean)

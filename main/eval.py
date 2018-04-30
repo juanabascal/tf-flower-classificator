@@ -25,6 +25,8 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('ckpt_dir', './data/checkpoints/',
                            """Directory where to restore a model""")
+tf.app.flags.DEFINE_string('eval_dir', './data/trained/adam_0.005/',
+                           """Directory where to restore the fine tuning model""")
 tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
                            """Directory where to write event logs """
                            """and checkpoint.""")
@@ -41,6 +43,7 @@ def train():
     with tf.Graph().as_default() as g:
         global_step = tf.train.get_or_create_global_step()
 
+        #With is_training=False, we get the image without distortions
         iterator = input.consume_tfrecord(is_training=False, batch_size=1)
         images_batch, labels_batch = iterator.get_next()
 
@@ -48,9 +51,9 @@ def train():
         with tf.contrib.slim.arg_scope(model.inception_v3_arg_scope()):
             bottleneck, end_points = model.inception_v3(images_batch, num_classes=None, is_training=False)
 
-        # with tf.variable_scope('fine_tuning'):
         logits = model.fine_tuning(bottleneck, end_points)
 
+        # For eval you need to restore the fine tuning model
         saver = tf.train.Saver(tf.global_variables('InceptionV3'))
         saver_ft = tf.train.Saver(tf.global_variables('fine_tuning'))
 
@@ -60,21 +63,24 @@ def train():
             sess.run(init)
 
             saver.restore(sess, tf.train.latest_checkpoint(FLAGS.ckpt_dir))
-            saver_ft.restore(sess, tf.train.latest_checkpoint('/home/uc3m3/Documentos/Trained/ft_flowers/adam_2/'))
+            saver_ft.restore(sess, tf.train.latest_checkpoint(FLAGS.eval_dir))
 
             tf.summary.image(tensor=images_batch, name="Image")
 
             logger = init_logger()
             logger.info("Eval starts...")
 
+            #Counter for the succes predictions
             correct = 0
 
+            #The range is from 1 to number of image of the eval dataset.
             for i in range(1, 1170):
                 images, labels = sess.run([images_batch, labels_batch])
 
+                #Get the class with the highest score
                 predicted_class = sess.run(tf.nn.top_k(logits, k=1)[1][0])
-                #label_true = sess.run(tf.nn.top_k(labels, k=1)[1][0])
 
+                #If the predicted class is the correct one, we add one to the counter
                 if predicted_class == labels:
                     correct += 1
 
