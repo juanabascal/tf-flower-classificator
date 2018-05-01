@@ -19,6 +19,14 @@ from __future__ import print_function
 
 import tensorflow as tf
 
+def int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+
+# _bytes is used for string/char values
+def bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
 
 def parse(serialized):
     """ Convert the images and labels from records feature to Tensors.

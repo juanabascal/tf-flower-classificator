@@ -19,13 +19,13 @@ from __future__ import print_function
 
 import tensorflow as tf
 import os
-from main import tfrecord_utils
+import tfrecord_utils
 
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_integer('image_size', 299,
                             """Height and width of the images.""")
-tf.app.flags.DEFINE_string('data_path', "./data",
+tf.app.flags.DEFINE_string('data_path', "data",
                            """Path to the data.""")
 
 tfrecord_file_training = os.path.join(FLAGS.data_path, "flowers_train.tfrecord")

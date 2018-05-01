@@ -19,23 +19,23 @@ from __future__ import print_function
 
 import tensorflow as tf
 import logging
-from main import input, model
+import input, model
 from datetime import datetime
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('ckpt_dir', './data/checkpoints/',
+tf.app.flags.DEFINE_string('ckpt_dir', 'data/checkpoints/',
                            """Directory where to restore a model""")
-tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
+tf.app.flags.DEFINE_string('save_dir', 'data/train/flowers',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('log_dir', './data/train/log',
+tf.app.flags.DEFINE_string('log_dir', 'data/train/log',
                            """Directory where to write event logs.""")
 tf.app.flags.DEFINE_integer('max_steps', 500,
                             """Number of epochs to run.""")
 tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Size of batches.""")
-tf.app.flags.DEFINE_integer('learning_rate', 0.005,
+tf.app.flags.DEFINE_float('learning_rate', 0.005,
                             """Learning rate for the optimizer""")
 
 

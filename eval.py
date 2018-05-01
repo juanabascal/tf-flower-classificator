@@ -19,18 +19,18 @@ from __future__ import print_function
 
 import tensorflow as tf
 import logging
-from main import input, model
+import input, model
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('ckpt_dir', './data/checkpoints/',
+tf.app.flags.DEFINE_string('ckpt_dir', 'data/checkpoints/',
                            """Directory where to restore a model""")
-tf.app.flags.DEFINE_string('eval_dir', './data/trained/adam_0.005/',
+tf.app.flags.DEFINE_string('eval_dir', 'data/trained/adam_0.005/',
                            """Directory where to restore the fine tuning model""")
-tf.app.flags.DEFINE_string('save_dir', './data/train/flowers',
+tf.app.flags.DEFINE_string('save_dir', 'data/train/flowers',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_string('log_dir', './data/train/log',
+tf.app.flags.DEFINE_string('log_dir', 'data/train/log',
                            """Directory where to write event logs.""")
 tf.app.flags.DEFINE_integer('max_steps', 2000,
                             """Number of batches to run.""")

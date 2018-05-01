@@ -30,17 +30,17 @@ import tarfile
 import os
 import tensorflow as tf
 import numpy as np
-from main import tfrecord_utils
+import tfrecord_utils
 from PIL import Image
 
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('data_path', "./data",
+tf.app.flags.DEFINE_string('data_path', "data",
                            """Path to the data.""")
-tf.app.flags.DEFINE_string('zip_file_path', "./data/flower_photos.tgz",
+tf.app.flags.DEFINE_string('zip_file_path', "data/flower_photos.tgz",
                            """Path to the zip file.""")
-tf.app.flags.DEFINE_string('images_path', "./data/images/flower_photos",
+tf.app.flags.DEFINE_string('images_path', "data/images/flower_photos",
                            """Path to the photos.""")
 
 # How many images you want in the training dataset. The rest will be used in the evaluation dataset.
@@ -262,9 +262,9 @@ def main(none):
     unzip_input(FLAGS.zip_file_path, os.path.join(FLAGS.data_path, "images"))
     create_datasets(FLAGS.images_path, FLAGS.data_path)
     generate_tfrecord_files(os.path.join(FLAGS.data_path, "training_set.txt"),
-                            os.path.join(FLAGS.data_path, "training_set.tfrecord"))
+                            os.path.join(FLAGS.data_path, "flowers_train.tfrecord"))
     generate_tfrecord_files(os.path.join(FLAGS.data_path, "eval_set.txt"),
-                            os.path.join(FLAGS.data_path, "eval_set.tfrecord"))
+                            os.path.join(FLAGS.data_path, "flowers_eval.tfrecord"))
 
 
 if __name__ == "__main__":
