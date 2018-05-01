@@ -102,5 +102,5 @@ If you need to contact us in a faster way, you can do it via email:
 
 * **Juan Abascal** - *juan.abascal@bq.com* 
 
-* **Daniel Gonzalez** - *daniel-gonzalez@bq.com* 
+* **Daniel Gonzalez** - *daniel.gonzalez@bq.com* 
 
