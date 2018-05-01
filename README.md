@@ -96,3 +96,11 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 
 ## Contribute!
 If you find any bug in the repo, or if you think out a solution that could work better, feel free to open an issue in the project. The aim of this repo is to make easier to people learn how to do a fine tuning properly so we will be glad if more people contribute!
+
+## Contact 
+If you need to contact us in a faster way, you can do it via email:
+
+* **Juan Abascal** - *juan.abascal@bq.com* 
+
+* **Daniel Gonzalez** - *daniel-gonzalez@bq.com* 
+
