@@ -72,5 +72,27 @@ ADAM |**500** | Default | **83.27 %** |
 ADAM |1000 | Default | 82.22%  |
 ADAM |500 | Learning rate = 0.005 | 82.19% |
 
+## Running the model on Google Cloud
+For those who do not have a GPU or do not want to have their computer busy training the network, there is the alternative to train it in the cloud. We recommend using the Machine Learning API of [Google Cloud](cloud.google.com/). 
+
+First of all, you need to add two files to the project, the `config.yaml` and `setup.py`. The next step is to upload to Google Storage the data that our project needs, that is, the tfrecord file and the weights of our net. Make sure to have gcloud installed in your envieronment. Then, just run the following command on your project directory and the programm will start running on the cloud:
+
+```now=$(date +"%Y%m%d_%H%M%S")
+export JOB_NAME="ft_flowers_$now"
+
+gcloud ml-engine jobs submit training $JOB_NAME \
+        --package-path main \
+        --staging-bucket gs://{Your_Directory_Name} \
+        --module-name main.train \
+        --job-dir gs://{Your_Directory_Name}/$JOB_NAME/train_dir \
+	      --region us-central1 \
+        --config config.yaml \
+        -- \
+        --data_path gs://{Your_Directory_Name}/{Your_Folder_Name}/ \
+        --ckpt_dir gs://{Your_Directory_Name}/{Your_Folder_Name}/checkpoints \
+        --log_dir gs://{Your_Directory_Name}/$JOB_NAME/train_dir/logs \
+        --save_dir gs://{Your_Directory_Name}/$JOB_NAME/train_dir/flower 
+ ```
+
 ## Contribute!
 If you find any bug in the repo, or if you think out a solution that could work better, feel free to open an issue in the project. The aim of this repo is to make easier to people learn how to do a fine tuning properly so we will be glad if more people contribute!
