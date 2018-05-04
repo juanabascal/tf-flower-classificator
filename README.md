@@ -77,7 +77,8 @@ For those who do not have a GPU or do not want to have their computer busy train
 
 First of all, you need to add two files to the project, the `config.yaml` and `setup.py`. The next step is to upload to Google Storage the data that our project needs, that is, the tfrecord file and the weights of our net. Make sure to have gcloud installed in your envieronment. Then, just run the following command on your project directory and the programm will start running on the cloud:
 
-```now=$(date +"%Y%m%d_%H%M%S")
+```
+now=$(date +"%Y%m%d_%H%M%S")
 export JOB_NAME="ft_flowers_$now"
 
 gcloud ml-engine jobs submit training $JOB_NAME \
